@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { 
   FileSpreadsheet, 
   Layers, 
@@ -19,6 +19,7 @@ import { consolidatedDataset, searchPipeItems, pipeItems } from './data';
 import { SearchBar, FilterSidebar } from './components/FilterPanel';
 import ItemRow from './components/ItemRow';
 import DetailsModal from './components/DetailsModal';
+import Logo from './components/Logo';
 
 export default function App() {
   // State for search queries and filter choices
@@ -29,6 +30,51 @@ export default function App() {
     ibrOnly: false,
     consolidate: true,
   });
+
+  // Track if user has interacted with specific filter categories
+  const [hasInteractedMaterial, setHasInteractedMaterial] = useState(false);
+  const [hasInteractedType, setHasInteractedType] = useState(false);
+  const [hasInteractedSearch, setHasInteractedSearch] = useState(false);
+
+  // Active filter change handler
+  const handleFilterChange = (
+    newFilters: FilterState,
+    category?: 'material' | 'type' | 'search'
+  ) => {
+    if (category === 'material') {
+      setHasInteractedMaterial(true);
+    } else if (category === 'type') {
+      setHasInteractedType(true);
+    } else if (category === 'search') {
+      setHasInteractedSearch(true);
+    } else {
+      // Fallback: detect what changed if category is not provided
+      if (newFilters.material !== filters.material) {
+        setHasInteractedMaterial(true);
+      }
+      if (newFilters.itemType !== filters.itemType) {
+        setHasInteractedType(true);
+      }
+      if (newFilters.searchQuery !== filters.searchQuery) {
+        setHasInteractedSearch(true);
+      }
+    }
+    setFilters(newFilters);
+  };
+
+  // Full reset handler
+  const resetAll = () => {
+    setFilters({
+      searchQuery: '',
+      material: 'All',
+      itemType: 'All',
+      ibrOnly: false,
+      consolidate: true,
+    });
+    setHasInteractedMaterial(false);
+    setHasInteractedType(false);
+    setHasInteractedSearch(false);
+  };
 
   // State for opening the slide-over details panel
   const [selectedItem, setSelectedItem] = useState<ConsolidateItem | null>(null);
@@ -56,8 +102,22 @@ export default function App() {
     };
   }, []);
 
+  // Check if user has actively searched or filtered for items
+  const isSearchOrFilterActive = useMemo(() => {
+    return (
+      filters.searchQuery.trim() !== '' ||
+      hasInteractedMaterial ||
+      hasInteractedType ||
+      filters.ibrOnly === true
+    );
+  }, [filters.searchQuery, filters.ibrOnly, hasInteractedMaterial, hasInteractedType]);
+
   // Filter the dataset based on current search & dropdown selections
   const filteredItems = useMemo(() => {
+    if (!isSearchOrFilterActive) {
+      return [];
+    }
+
     // Search and filter consolidated unique dataset
     const results = searchPipeItems(
       consolidatedDataset,
@@ -108,7 +168,7 @@ export default function App() {
     });
 
     return finalResults;
-  }, [filters, sortBy, sortOrder]);
+  }, [isSearchOrFilterActive, filters, sortBy, sortOrder]);
 
   const toggleSort = (field: 'spec' | 'count' | 'material') => {
     if (sortBy === field) {
@@ -126,8 +186,8 @@ export default function App() {
       <header className="border-b border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md sticky top-0 z-30 transition-all">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-steel-900 dark:bg-slate-100 flex items-center justify-center text-white dark:text-slate-900 shadow-md">
-              <FileSpreadsheet className="w-5 h-5 stroke-[2.2]" />
+            <div className="w-9 h-9 rounded-xl bg-slate-950 dark:bg-slate-900 flex items-center justify-center shadow-md border border-slate-200/10">
+              <Logo className="w-6.5 h-6.5" />
             </div>
             <div>
               <span className="text-xs uppercase tracking-widest font-mono font-bold text-slate-400 block -mb-0.5">Materials Desk</span>
@@ -197,7 +257,7 @@ export default function App() {
         <section>
           <SearchBar
             filters={filters}
-            onFilterChange={setFilters}
+            onFilterChange={handleFilterChange}
           />
         </section>
 
@@ -207,9 +267,12 @@ export default function App() {
           <aside className="lg:col-span-4">
             <FilterSidebar
               filters={filters}
-              onFilterChange={setFilters}
+              onFilterChange={handleFilterChange}
               totalFiltered={filteredItems.length}
               totalRaw={filteredItems.reduce((sum, item) => sum + item.count, 0)}
+              hasInteractedMaterial={hasInteractedMaterial}
+              hasInteractedType={hasInteractedType}
+              onReset={resetAll}
             />
           </aside>
 
@@ -222,41 +285,74 @@ export default function App() {
               </h2>
               
               {/* Sorting controls */}
-              <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                <span className="text-slate-400 mr-1 hidden sm:inline">Sort by:</span>
-                <button 
-                  onClick={() => toggleSort('spec')}
-                  className={`px-2.5 py-1.5 rounded-md border flex items-center space-x-1 transition-all hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer ${
-                    sortBy === 'spec' ? 'border-steel-300 bg-steel-50/50 text-steel-700 dark:bg-slate-900 dark:border-slate-700 font-semibold' : 'border-slate-200 dark:border-slate-800 text-slate-500'
-                  }`}
-                >
-                  <span>Code Standard</span>
-                  <ArrowUpDown className="w-3.5 h-3.5" />
-                </button>
-                <button 
-                  onClick={() => toggleSort('count')}
-                  className={`px-2.5 py-1.5 rounded-md border flex items-center space-x-1 transition-all hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer ${
-                    sortBy === 'count' ? 'border-steel-300 bg-steel-50/50 text-steel-700 dark:bg-slate-900 dark:border-slate-700 font-semibold' : 'border-slate-200 dark:border-slate-800 text-slate-500'
-                  }`}
-                >
-                  <span>Occurrences</span>
-                  <ArrowUpDown className="w-3.5 h-3.5" />
-                </button>
-                <button 
-                  onClick={() => toggleSort('material')}
-                  className={`px-2.5 py-1.5 rounded-md border flex items-center space-x-1 transition-all hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer ${
-                    sortBy === 'material' ? 'border-steel-300 bg-steel-50/50 text-steel-700 dark:bg-slate-900 dark:border-slate-700 font-semibold' : 'border-slate-200 dark:border-slate-800 text-slate-500'
-                  }`}
-                >
-                  <span>Material</span>
-                  <ArrowUpDown className="w-3.5 h-3.5" />
-                </button>
-              </div>
+              {isSearchOrFilterActive && (
+                <div className="flex flex-wrap items-center gap-1.5 text-xs animate-in fade-in duration-200">
+                  <span className="text-slate-400 mr-1 hidden sm:inline">Sort by:</span>
+                  <button 
+                    onClick={() => toggleSort('spec')}
+                    className={`px-2.5 py-1.5 rounded-md border flex items-center space-x-1 transition-all hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer ${
+                      sortBy === 'spec' ? 'border-steel-300 bg-steel-50/50 text-steel-700 dark:bg-slate-900 dark:border-slate-700 font-semibold' : 'border-slate-200 dark:border-slate-800 text-slate-500'
+                    }`}
+                  >
+                    <span>Code Standard</span>
+                    <ArrowUpDown className="w-3.5 h-3.5" />
+                  </button>
+                  <button 
+                    onClick={() => toggleSort('count')}
+                    className={`px-2.5 py-1.5 rounded-md border flex items-center space-x-1 transition-all hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer ${
+                      sortBy === 'count' ? 'border-steel-300 bg-steel-50/50 text-steel-700 dark:bg-slate-900 dark:border-slate-700 font-semibold' : 'border-slate-200 dark:border-slate-800 text-slate-500'
+                    }`}
+                  >
+                    <span>Occurrences</span>
+                    <ArrowUpDown className="w-3.5 h-3.5" />
+                  </button>
+                  <button 
+                    onClick={() => toggleSort('material')}
+                    className={`px-2.5 py-1.5 rounded-md border flex items-center space-x-1 transition-all hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer ${
+                      sortBy === 'material' ? 'border-steel-300 bg-steel-50/50 text-steel-700 dark:bg-slate-900 dark:border-slate-700 font-semibold' : 'border-slate-200 dark:border-slate-800 text-slate-500'
+                    }`}
+                  >
+                    <span>Material</span>
+                    <ArrowUpDown className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Results list mapping */}
             <div className="space-y-2.5 min-h-36">
-              {filteredItems.length > 0 ? (
+              {!isSearchOrFilterActive ? (
+                <div className="border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center space-y-4 bg-white dark:bg-slate-900/40">
+                  <Compass className="w-12 h-12 text-steel-500/60 mx-auto animate-pulse" />
+                  <h3 className="font-display font-extrabold text-slate-800 dark:text-slate-100 text-base">
+                    Search or Filter to Explore Catalog
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-sans max-w-md mx-auto leading-relaxed">
+                    The pipe and tube database is currently loaded and offline-ready. Enter a standard/grade code above (e.g., <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-steel-600 dark:text-steel-400">A106</span> or <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-steel-600 dark:text-steel-400">TP304</span>), or select specific materials and shapes in the sidebar to display matched pipeline specifications.
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                    <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400">Try quick searches:</span>
+                    <button 
+                      onClick={() => handleFilterChange({ ...filters, searchQuery: 'A106 b' })}
+                      className="text-[11px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-600 dark:text-slate-350 px-2.5 py-1 rounded-md transition-colors font-mono cursor-pointer border border-slate-200/50 dark:border-slate-750"
+                    >
+                      A106 b
+                    </button>
+                    <button 
+                      onClick={() => handleFilterChange({ ...filters, searchQuery: 'SA213 T91' })}
+                      className="text-[11px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-600 dark:text-slate-350 px-2.5 py-1 rounded-md transition-colors font-mono cursor-pointer border border-slate-200/50 dark:border-slate-750"
+                    >
+                      SA213 T91
+                    </button>
+                    <button 
+                      onClick={() => handleFilterChange({ ...filters, material: 'Stainless Steel' })}
+                      className="text-[11px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-600 dark:text-slate-350 px-2.5 py-1 rounded-md transition-colors font-mono cursor-pointer border border-slate-200/50 dark:border-slate-750"
+                    >
+                      Stainless Steel
+                    </button>
+                  </div>
+                </div>
+              ) : filteredItems.length > 0 ? (
                 filteredItems.map((item) => (
                   <ItemRow
                     key={item.id}
@@ -276,10 +372,10 @@ export default function App() {
                     Try typing portions of code like <span className="font-mono">"A106"</span>, <span className="font-mono">"316L"</span>, or clicking the pre-built fuzzy search shortcuts above to check the results.
                   </p>
                   <button
-                    onClick={() => setFilters({ ...filters, searchQuery: '', material: 'All', itemType: 'All', ibrOnly: false })}
-                    className="text-xs text-steel-500 dark:text-steel-400 font-semibold underline hover:text-steel-700"
+                    onClick={resetAll}
+                    className="text-xs text-steel-500 dark:text-steel-400 font-semibold underline hover:text-steel-700 cursor-pointer"
                   >
-                    Reset filters and show all items
+                    Clear filters and search query
                   </button>
                 </div>
               )}

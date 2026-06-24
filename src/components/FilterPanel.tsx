@@ -4,14 +4,17 @@ import { FilterState } from '../types';
 
 interface SearchBarProps {
   filters: FilterState;
-  onFilterChange: (filters: FilterState) => void;
+  onFilterChange: (filters: FilterState, category?: 'material' | 'type' | 'search') => void;
 }
 
 interface FilterSidebarProps {
   filters: FilterState;
-  onFilterChange: (filters: FilterState) => void;
+  onFilterChange: (filters: FilterState, category?: 'material' | 'type' | 'search') => void;
   totalFiltered: number;
   totalRaw: number;
+  hasInteractedMaterial: boolean;
+  hasInteractedType: boolean;
+  onReset: () => void;
 }
 
 const MATERIALS = [
@@ -53,7 +56,7 @@ export function SearchBar({ filters, onFilterChange }: SearchBarProps) {
   }, [filters.searchQuery]);
 
   const handleSearchSubmit = () => {
-    onFilterChange({ ...filters, searchQuery: localQuery });
+    onFilterChange({ ...filters, searchQuery: localQuery }, 'search');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -64,7 +67,7 @@ export function SearchBar({ filters, onFilterChange }: SearchBarProps) {
 
   const handleShortcutClick = (query: string) => {
     setLocalQuery(query);
-    onFilterChange({ ...filters, searchQuery: query });
+    onFilterChange({ ...filters, searchQuery: query }, 'search');
   };
 
   return (
@@ -97,7 +100,7 @@ export function SearchBar({ filters, onFilterChange }: SearchBarProps) {
                 type="button"
                 onClick={() => {
                   setLocalQuery('');
-                  onFilterChange({ ...filters, searchQuery: '' });
+                  onFilterChange({ ...filters, searchQuery: '' }, 'search');
                 }}
                 className="absolute right-3 top-3 text-xs bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-2 py-1 rounded-md transition-all font-mono"
               >
@@ -151,6 +154,9 @@ export function FilterSidebar({
   onFilterChange,
   totalFiltered,
   totalRaw,
+  hasInteractedMaterial,
+  hasInteractedType,
+  onReset,
 }: FilterSidebarProps) {
   const [isOpenMobile, setIsOpenMobile] = useState(false);
 
@@ -164,11 +170,19 @@ export function FilterSidebar({
   }, [filters]);
 
   const handleMaterialSelect = (m: string) => {
-    onFilterChange({ ...filters, material: m });
+    if (filters.material === m) {
+      onFilterChange({ ...filters, material: 'All' }, 'material');
+    } else {
+      onFilterChange({ ...filters, material: m }, 'material');
+    }
   };
 
   const handleTypeSelect = (t: string) => {
-    onFilterChange({ ...filters, itemType: t });
+    if (filters.itemType === t) {
+      onFilterChange({ ...filters, itemType: 'All' }, 'type');
+    } else {
+      onFilterChange({ ...filters, itemType: t }, 'type');
+    }
   };
 
   const toggleIbr = () => {
@@ -180,20 +194,14 @@ export function FilterSidebar({
   };
 
   const clearFilters = () => {
-    onFilterChange({
-      searchQuery: '',
-      material: 'All',
-      itemType: 'All',
-      ibrOnly: false,
-      consolidate: true,
-    });
+    onReset();
   };
 
   const filtersApplied = () => {
     return (
       filters.searchQuery !== '' ||
-      filters.material !== 'All' ||
-      filters.itemType !== 'All' ||
+      hasInteractedMaterial ||
+      hasInteractedType ||
       filters.ibrOnly === true ||
       filters.consolidate === false
     );
@@ -242,19 +250,24 @@ export function FilterSidebar({
         <div className="space-y-2">
           <span className="text-xs font-mono uppercase tracking-wider text-slate-400 block font-bold">Material Type</span>
           <div className="grid grid-cols-2 gap-1.5">
-            {MATERIALS.map((mat) => (
-              <button
-                key={mat.value}
-                onClick={() => handleMaterialSelect(mat.value)}
-                className={`px-2.5 py-2 text-left text-xs rounded-lg transition-all duration-200 cursor-pointer border ${
-                  filters.material === mat.value
-                    ? 'bg-steel-500 text-white font-semibold shadow-xs border-steel-600'
-                    : 'bg-white hover:bg-slate-50 text-slate-600 dark:bg-slate-900 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800'
-                }`}
-              >
-                {mat.label}
-              </button>
-            ))}
+            {MATERIALS.map((mat) => {
+              const isActive = mat.value === 'All'
+                ? (hasInteractedMaterial && filters.material === 'All')
+                : (filters.material === mat.value);
+              return (
+                <button
+                  key={mat.value}
+                  onClick={() => handleMaterialSelect(mat.value)}
+                  className={`px-2.5 py-2 text-left text-xs rounded-lg transition-all duration-200 cursor-pointer border ${
+                    isActive
+                      ? 'bg-steel-500 text-white font-semibold shadow-xs border-steel-600'
+                      : 'bg-white hover:bg-slate-50 text-slate-600 dark:bg-slate-900 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800'
+                  }`}
+                >
+                  {mat.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -262,19 +275,24 @@ export function FilterSidebar({
         <div className="space-y-2">
           <span className="text-xs font-mono uppercase tracking-wider text-slate-400 block font-bold">Item Shape/Type</span>
           <div className="grid grid-cols-2 gap-1.5">
-            {ITEM_TYPES.map((type) => (
-              <button
-                key={type.value}
-                onClick={() => handleTypeSelect(type.value)}
-                className={`px-2.5 py-2 text-left text-xs rounded-lg transition-all duration-200 cursor-pointer border ${
-                  filters.itemType === type.value
-                    ? 'bg-steel-700 text-white dark:bg-slate-250 dark:text-slate-900 font-semibold border-steel-800'
-                    : 'bg-white hover:bg-slate-50 text-slate-600 dark:bg-slate-900 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800'
-                }`}
-              >
-                {type.label}
-              </button>
-            ))}
+            {ITEM_TYPES.map((type) => {
+              const isActive = type.value === 'All'
+                ? (hasInteractedType && filters.itemType === 'All')
+                : (filters.itemType === type.value);
+              return (
+                <button
+                  key={type.value}
+                  onClick={() => handleTypeSelect(type.value)}
+                  className={`px-2.5 py-2 text-left text-xs rounded-lg transition-all duration-200 cursor-pointer border ${
+                    isActive
+                      ? 'bg-steel-700 text-white dark:bg-slate-250 dark:text-slate-900 font-semibold border-steel-800'
+                      : 'bg-white hover:bg-slate-50 text-slate-600 dark:bg-slate-900 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800'
+                  }`}
+                >
+                  {type.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
