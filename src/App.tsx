@@ -3,7 +3,6 @@ import {
   FileSpreadsheet, 
   Layers, 
   Flame, 
-  Download, 
   HelpCircle, 
   FileText, 
   CheckCircle2, 
@@ -116,34 +115,6 @@ export default function App() {
     }
   };
 
-  // Helper to export filtered results back to Excel-compatible CSV format
-  const handleExportCSV = () => {
-    // Generate CSV Header
-    let csvContent = 'data:text/csv;charset=utf-8,Item Name,Specification,Grade,Material Type,IBR Status,Spreadsheet Occurrences\n';
-    
-    // Add rows
-    filteredItems.forEach(item => {
-      const csvRow = [
-        `"${item.itemName.replace(/"/g, '""')}"`,
-        `"${item.specification.replace(/"/g, '""')}"`,
-        `"${item.grade.replace(/"/g, '""')}"`,
-        item.material,
-        item.isIbr ? 'IBR Certified' : 'Non-IBR',
-        item.count
-      ].join(',');
-      csvContent += csvRow + '\n';
-    });
-
-    // Create a temporary anchor element to trigger download
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `pipes_tubes_filtered_export.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 steel-grid-bg transition-colors pb-24 font-sans">
       
@@ -160,18 +131,6 @@ export default function App() {
                 Pipe & Tube Finder
               </h1>
             </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleExportCSV}
-              disabled={filteredItems.length === 0}
-              className="text-xs font-semibold px-3.5 py-2 rounded-lg bg-steel-800 hover:bg-steel-700 disabled:opacity-50 text-white shadow-xs hover:shadow-md transition-all flex items-center space-x-1.5 cursor-pointer"
-              title="Download results as a spreadsheet-ready CSV"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Export CSV</span>
-            </button>
           </div>
         </div>
       </header>
