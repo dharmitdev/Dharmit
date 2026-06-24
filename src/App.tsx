@@ -328,7 +328,7 @@ export default function App() {
                     Search or Filter to Explore Catalog
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 font-sans max-w-md mx-auto leading-relaxed">
-                    The pipe and tube database is currently loaded and offline-ready. Enter a standard/grade code above (e.g., <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-steel-600 dark:text-steel-400">A106</span> or <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-steel-600 dark:text-steel-400">TP304</span>), or select specific materials and shapes in the sidebar to display matched pipeline specifications.
+                    The pipe and tube database is currently loaded and offline-ready. Enter a standard/grade code above (e.g., <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-steel-600 dark:text-steel-400">A106</span>, <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-steel-600 dark:text-steel-400">TP304</span>, or <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-steel-600 dark:text-steel-400">DIN 1629</span>), or select specific materials and shapes in the sidebar to display matched pipeline specifications.
                   </p>
                   <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
                     <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400">Try quick searches:</span>
@@ -343,6 +343,12 @@ export default function App() {
                       className="text-[11px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-600 dark:text-slate-350 px-2.5 py-1 rounded-md transition-colors font-mono cursor-pointer border border-slate-200/50 dark:border-slate-750"
                     >
                       SA213 T91
+                    </button>
+                    <button 
+                      onClick={() => handleFilterChange({ ...filters, searchQuery: 'DIN 1629' })}
+                      className="text-[11px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-600 dark:text-slate-350 px-2.5 py-1 rounded-md transition-colors font-mono cursor-pointer border border-slate-200/50 dark:border-slate-750"
+                    >
+                      DIN 1629
                     </button>
                     <button 
                       onClick={() => handleFilterChange({ ...filters, material: 'Stainless Steel' })}

@@ -185,7 +185,14 @@ export const pipeDatasetRaw = [
   { item: "Stainless Steel Seamless Tubes", spec: "ASTM A213", grade: "TP 316H", count: 4 },
   { item: "Carbon Steel Seamless U Tubes", spec: "ASME SA556", grade: "Gr. B2", count: 6 },
   { item: "Stainless Steel Seamless U Tubes", spec: "ASME SA213", grade: "TP 304H", count: 8 },
-  { item: "Stainless Steel Seamless U Tubes", spec: "ASME SA213", grade: "TP-317L", count: 6 }
+  { item: "Stainless Steel Seamless U Tubes", spec: "ASME SA213", grade: "TP-317L", count: 6 },
+  { item: "Carbon Steel Seamless Pipes", spec: "DIN 1629", grade: "St 37.0", count: 18 },
+  { item: "Carbon Steel Seamless Pipes", spec: "DIN 1629", grade: "St 44.0", count: 12 },
+  { item: "Carbon Steel Seamless Pipes", spec: "DIN 1629", grade: "St 52.0", count: 15 },
+  { item: "Carbon Steel Seamless Tubes", spec: "DIN 17175", grade: "St 35.8", count: 14 },
+  { item: "Carbon Steel Seamless Tubes", spec: "DIN 17175", grade: "St 45.8", count: 10 },
+  { item: "Carbon Steel Seamless Pipes", spec: "DIN 2448", grade: "St 37.0", count: 20 },
+  { item: "Carbon Steel Seamless Pipes", spec: "DIN 2448", grade: "St 52.0", count: 16 }
 ] as any[];
 
 // Standard parser/mapper to build full PipeItem objects with unique IDs and normalized fields
@@ -243,6 +250,7 @@ export const searchPipeItems = (
     
     filtered = filtered.filter(item => {
       const matchText = `${item.itemName} ${item.specification} ${item.grade}`.toLowerCase();
+      const normMatchText = matchText.replace(/[-_.\s]/g, '');
       
       // Every single token must match somewhere in the text
       return tokens.every(token => {
@@ -255,8 +263,9 @@ export const searchPipeItems = (
         
         if (isA106 || isB) return true;
         
-        // General sub-term match
-        return matchText.includes(token);
+        // Match original or normalized versions to support dashes, dots, and space differences (e.g. st-37, st 37, st37)
+        const normToken = token.replace(/[-_.\s]/g, '');
+        return matchText.includes(token) || (normToken.length > 0 && normMatchText.includes(normToken));
       });
     });
   }
