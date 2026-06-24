@@ -1,0 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "Fira Code", monospace;
+
+  --color-steel-50: #f4f6f8;
+  --color-steel-100: #e8ecf1;
+  --color-steel-200: #ced8e2;
+  --color-steel-300: #a7baca;
+  --color-steel-400: #7a97ae;
+  --color-steel-500: #587993;
+  --color-steel-600: #446078;
+  --color-steel-700: #374d61;
+  --color-steel-800: #2f3f50;
+  --color-steel-900: #2a3543;
+}
+
+@layer utilities {
+  .steel-grid-bg {
+    background-size: 24px 24px;
+    background-image: 
+      linear-gradient(to right, rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
+  }
+}
+

@@ -1,0 +1,6 @@
+{
+  "name": "Pipe & Tube Finder",
+  "description": "A smart utility to search and filter pipe and tube items by specification, grade, and keywords with full deduplication support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
