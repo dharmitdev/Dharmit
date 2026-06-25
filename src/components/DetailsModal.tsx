@@ -228,50 +228,65 @@ export default function DetailsModal({ item, onClose }: DetailsModalProps) {
               </div>
             </div>
 
-            {/* Simulated Schematic Diagram */}
-            <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-slate-900 text-slate-100 relative p-4 flex flex-col items-center justify-center h-48">
-              <div className="absolute top-2 left-2 flex items-center space-x-1 font-mono text-[9px] text-slate-500 uppercase tracking-widest">
-                <Anchor className="w-3 h-3" />
-                <span>Pipe Profile schematic</span>
+            {/* Custom Image or Simulated Schematic Diagram */}
+            {item.imageUrl ? (
+              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-900 relative h-48 group shadow-xs">
+                <img
+                  src={item.imageUrl}
+                  alt={item.itemName}
+                  className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute top-2 left-2 bg-slate-900/80 backdrop-blur-xs text-white px-2 py-0.5 rounded text-[9px] font-mono uppercase tracking-widest flex items-center space-x-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <span>Product Image</span>
+                </div>
               </div>
+            ) : (
+              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-slate-900 text-slate-100 relative p-4 flex flex-col items-center justify-center h-48">
+                <div className="absolute top-2 left-2 flex items-center space-x-1 font-mono text-[9px] text-slate-500 uppercase tracking-widest">
+                  <Anchor className="w-3 h-3" />
+                  <span>Pipe Profile schematic</span>
+                </div>
 
-              {/* Dynamic SVG Pipe drawing */}
-              <div className="w-full flex justify-center items-center h-full pt-4">
-                <svg className="w-4/5 h-20 text-slate-400" viewBox="0 0 300 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  {/* Outer pipe */}
-                  <rect x="20" y="20" width="230" height="40" rx="3" fill="url(#metalGrad)" stroke="#475569" strokeWidth="2"/>
-                  {/* Pipe inner hole projection */}
-                  <ellipse cx="250" cy="40" rx="10" ry="20" fill="#1e293b" stroke="#64748b" strokeWidth="2" />
-                  {/* Pipe start projection */}
-                  <ellipse cx="20" cy="40" rx="6" ry="20" fill="#334155" stroke="#475569" strokeWidth="2" />
-                  
-                  {/* Dimension lines */}
-                  <line x1="20" y1="10" x2="250" y2="10" stroke="#64748b" strokeDasharray="3,3" />
-                  <path d="M20 7 L20 13 M250 7 L250 13" stroke="#64748b" />
-                  
-                  <text x="135" y="8" fill="#94a3b8" fontSize="8" fontFamily="monospace" textAnchor="middle">LENGTH (STD 6.0m / 12.0m)</text>
-                  <text x="280" y="43" fill="#94a3b8" fontSize="8" fontFamily="monospace" textAnchor="middle">OD</text>
-                  <line x1="270" y1="20" x2="270" y2="60" stroke="#64748b" />
-                  <path d="M267 20 L273 20 M267 60 L273 60" stroke="#64748b" />
+                {/* Dynamic SVG Pipe drawing */}
+                <div className="w-full flex justify-center items-center h-full pt-4">
+                  <svg className="w-4/5 h-20 text-slate-400" viewBox="0 0 300 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    {/* Outer pipe */}
+                    <rect x="20" y="20" width="230" height="40" rx="3" fill="url(#metalGrad)" stroke="#475569" strokeWidth="2"/>
+                    {/* Pipe inner hole projection */}
+                    <ellipse cx="250" cy="40" rx="10" ry="20" fill="#1e293b" stroke="#64748b" strokeWidth="2" />
+                    {/* Pipe start projection */}
+                    <ellipse cx="20" cy="40" rx="6" ry="20" fill="#334155" stroke="#475569" strokeWidth="2" />
+                    
+                    {/* Dimension lines */}
+                    <line x1="20" y1="10" x2="250" y2="10" stroke="#64748b" strokeDasharray="3,3" />
+                    <path d="M20 7 L20 13 M250 7 L250 13" stroke="#64748b" />
+                    
+                    <text x="135" y="8" fill="#94a3b8" fontSize="8" fontFamily="monospace" textAnchor="middle">LENGTH (STD 6.0m / 12.0m)</text>
+                    <text x="280" y="43" fill="#94a3b8" fontSize="8" fontFamily="monospace" textAnchor="middle">OD</text>
+                    <line x1="270" y1="20" x2="270" y2="60" stroke="#64748b" />
+                    <path d="M267 20 L273 20 M267 60 L273 60" stroke="#64748b" />
 
-                  {/* Metal gradient */}
-                  <defs>
-                    <linearGradient id="metalGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#334155" />
-                      <stop offset="35%" stopColor="#64748b" />
-                      <stop offset="50%" stopColor="#f1f5f9" stopOpacity="0.8" />
-                      <stop offset="65%" stopColor="#64748b" />
-                      <stop offset="100%" stopColor="#334155" />
-                    </linearGradient>
-                  </defs>
-                </svg>
+                    {/* Metal gradient */}
+                    <defs>
+                      <linearGradient id="metalGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#334155" />
+                        <stop offset="35%" stopColor="#64748b" />
+                        <stop offset="50%" stopColor="#f1f5f9" stopOpacity="0.8" />
+                        <stop offset="65%" stopColor="#64748b" />
+                        <stop offset="100%" stopColor="#334155" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                </div>
+
+                <div className="absolute bottom-2 right-2 flex space-x-4 font-mono text-[9px] text-slate-400">
+                  <span>SEAMLESS WALL</span>
+                  <span>SCH 40/80/XS READY</span>
+                </div>
               </div>
-
-              <div className="absolute bottom-2 right-2 flex space-x-4 font-mono text-[9px] text-slate-400">
-                <span>SEAMLESS WALL</span>
-                <span>SCH 40/80/XS READY</span>
-              </div>
-            </div>
+            )}
 
             {/* Overview / Tagline */}
             <div className="space-y-2">

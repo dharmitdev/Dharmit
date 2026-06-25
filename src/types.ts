@@ -8,6 +8,7 @@ export interface PipeItem {
   normalizedGrade: string;
   isIbr: boolean;
   material: string;
+  imageUrl?: string;
 }
 
 export interface ConsolidateItem {
@@ -18,6 +19,7 @@ export interface ConsolidateItem {
   isIbr: boolean;
   material: string;
   count: number; // Number of duplicates in original sheet
+  imageUrl?: string;
 }
 
 export interface FilterState {

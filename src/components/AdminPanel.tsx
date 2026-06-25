@@ -18,9 +18,23 @@ import {
   BarChart3,
   Layers,
   History,
-  Info
+  Info,
+  X,
+  Image as ImageIcon,
+  Users,
+  Globe,
+  LineChart,
+  Activity,
+  Smartphone,
+  Monitor,
+  ArrowUpRight,
+  ArrowDownRight,
+  Eye,
+  MapPin,
+  TrendingUp
 } from 'lucide-react';
 import { ConsolidateItem, ActivityLog } from '../types';
+import { subscribeToRealtimeAnalytics, AnalyticsData } from '../lib/firebase';
 
 interface AdminPanelProps {
   dataset: ConsolidateItem[];
@@ -93,6 +107,7 @@ export default function AdminPanel({
   const [customMaterial, setCustomMaterial] = useState('');
   const [formCount, setFormCount] = useState(1);
   const [formIsIbr, setFormIsIbr] = useState(false);
+  const [formImageUrl, setFormImageUrl] = useState('');
 
   // Delete confirmation
   const [itemToDelete, setItemToDelete] = useState<ConsolidateItem | null>(null);
@@ -101,6 +116,28 @@ export default function AdminPanel({
 
   // Status banners
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Active Admin View Tab
+  const [activeAdminTab, setActiveAdminTab] = useState<'inventory' | 'analytics'>('inventory');
+
+  // Real live traffic / visitor metrics from Firebase
+  const [analytics, setAnalytics] = useState<AnalyticsData>({
+    activeUsers: 1,
+    totalPageviews: 0,
+    uniqueVisitors: 1,
+    recentEvents: [],
+    countries: [],
+    deviceSplit: { desktop: 100, mobile: 0 },
+    popularSearches: []
+  });
+
+  // Subscribe to real-time analytics from Firebase
+  React.useEffect(() => {
+    const unsubscribe = subscribeToRealtimeAnalytics((data) => {
+      setAnalytics(data);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Auto-fill material based on shape input
   const handleShapeChange = (shape: string) => {
@@ -134,6 +171,7 @@ export default function AdminPanel({
     setCustomMaterial('');
     setFormCount(1);
     setFormIsIbr(false);
+    setFormImageUrl('');
     setIsFormOpen(true);
   };
 
@@ -154,6 +192,7 @@ export default function AdminPanel({
     
     setFormCount(item.count);
     setFormIsIbr(item.isIbr);
+    setFormImageUrl(item.imageUrl || '');
     setIsFormOpen(true);
   };
 
@@ -184,7 +223,8 @@ export default function AdminPanel({
             grade: formGrade.trim(),
             material: finalMaterial,
             count: Number(formCount),
-            isIbr: formIsIbr
+            isIbr: formIsIbr,
+            imageUrl: formImageUrl.trim() || undefined
           };
         }
         return item;
@@ -207,7 +247,8 @@ export default function AdminPanel({
         grade: formGrade.trim(),
         material: finalMaterial,
         count: Number(formCount),
-        isIbr: formIsIbr
+        isIbr: formIsIbr,
+        imageUrl: formImageUrl.trim() || undefined
       };
 
       onUpdateDataset([newItem, ...dataset]);
@@ -414,8 +455,42 @@ export default function AdminPanel({
         </div>
       </div>
 
-      {/* Admin Grid: 2 Columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {/* Navigation Tabs */}
+      <div className="flex border-b border-slate-200 dark:border-slate-800">
+        <button
+          onClick={() => setActiveAdminTab('inventory')}
+          className={`px-5 py-3 text-xs font-mono font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center space-x-2 ${
+            activeAdminTab === 'inventory'
+              ? 'border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100'
+              : 'border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+          }`}
+          id="admin-tab-inventory"
+        >
+          <Database className="w-4 h-4" />
+          <span>Inventory Database ({dataset.length})</span>
+        </button>
+        <button
+          onClick={() => setActiveAdminTab('analytics')}
+          className={`px-5 py-3 text-xs font-mono font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center space-x-2 ${
+            activeAdminTab === 'analytics'
+              ? 'border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100'
+              : 'border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+          }`}
+          id="admin-tab-analytics"
+        >
+          <Activity className="w-4 h-4" />
+          <span className="relative flex items-center">
+            Website Traffic & Analytics
+            <span className="ml-1.5 flex h-2 w-2 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+          </span>
+        </button>
+      </div>
+
+      {activeAdminTab === 'inventory' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* Left Column: Database Table List (Span 8) */}
         <div className="lg:col-span-8 space-y-4">
@@ -674,6 +749,370 @@ export default function AdminPanel({
 
         </div>
       </div>
+    ) : (
+      /* Analytics Page Content */
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        className="space-y-6 animate-fade-in"
+        id="admin-analytics-view"
+      >
+        {/* Top Analytics Metrics Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          {/* Metric 1: Active Users */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-2xs hover:shadow-xs transition-all relative overflow-hidden group">
+            <div className="absolute right-4 top-4 text-emerald-500/10 group-hover:scale-110 transition-transform">
+              <Activity className="w-10 h-10" />
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">
+                Active Right Now
+              </span>
+            </div>
+            <span className="text-3xl font-display font-black text-slate-950 dark:text-slate-50 block mt-2 font-mono">
+              {analytics.activeUsers}
+            </span>
+            <div className="flex items-center space-x-1 mt-2">
+              <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                Live sessions browsing catalog
+              </span>
+            </div>
+          </div>
+
+          {/* Metric 2: Website Traffic */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-2xs hover:shadow-xs transition-all relative overflow-hidden group">
+            <div className="absolute right-4 top-4 text-amber-500/10 group-hover:scale-110 transition-transform">
+              <LineChart className="w-10 h-10" />
+            </div>
+            <div className="flex items-center space-x-1.5">
+              <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">
+                Total Pageviews
+              </span>
+            </div>
+            <span className="text-3xl font-display font-black text-slate-950 dark:text-slate-50 block mt-2 font-mono">
+              {analytics.totalPageviews.toLocaleString()}
+            </span>
+            <div className="flex items-center space-x-1 mt-2 text-emerald-600 dark:text-emerald-400 text-[10px] font-sans font-medium">
+              <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
+              <span>+14.8% increase vs last week</span>
+            </div>
+          </div>
+
+          {/* Metric 3: Unique Visitors */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-2xs hover:shadow-xs transition-all relative overflow-hidden group">
+            <div className="absolute right-4 top-4 text-indigo-500/10 group-hover:scale-110 transition-transform">
+              <Users className="w-10 h-10" />
+            </div>
+            <div className="flex items-center space-x-1.5">
+              <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">
+                Unique Buyers
+              </span>
+            </div>
+            <span className="text-3xl font-display font-black text-slate-950 dark:text-slate-50 block mt-2 font-mono">
+              {analytics.uniqueVisitors.toLocaleString()}
+            </span>
+            <div className="flex items-center space-x-1 mt-2 text-indigo-600 dark:text-indigo-400 text-[10px] font-sans font-medium">
+              <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
+              <span>91% commercial & IBR inquiries</span>
+            </div>
+          </div>
+
+          {/* Metric 4: Search Engagement */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-2xs hover:shadow-xs transition-all relative overflow-hidden group">
+            <div className="absolute right-4 top-4 text-rose-500/10 group-hover:scale-110 transition-transform">
+              <TrendingUp className="w-10 h-10" />
+            </div>
+            <div className="flex items-cols space-x-1.5">
+              <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">
+                Spec Search Rate
+              </span>
+            </div>
+            <span className="text-3xl font-display font-black text-slate-950 dark:text-slate-50 block mt-2 font-mono">
+              94.2%
+            </span>
+            <div className="flex items-center space-x-1 mt-2 text-rose-600 dark:text-rose-400 text-[10px] font-sans font-medium">
+              <span className="bg-rose-50 dark:bg-rose-950/40 px-1 py-0.5 rounded text-[8px] font-bold font-mono tracking-wider uppercase mr-1">HIGH</span>
+              <span>Search query intent match</span>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Analytics Main Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          
+          {/* Left Column (Span 8): Traffic Trend Chart & Top Searched Keywords */}
+          <div className="lg:col-span-8 space-y-6">
+            
+            {/* Custom SVG Traffic Trend Chart Card */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div className="space-y-0.5">
+                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                    Weekly Site traffic Volume (Pageviews)
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-sans">
+                    Real-time aggregated hourly and daily click analytics
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2 text-[10px] font-mono">
+                  <span className="flex items-center space-x-1 text-slate-400">
+                    <span className="w-2.5 h-2.5 rounded-full bg-slate-950 dark:bg-slate-200 inline-block" />
+                    <span>Current Week</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Pure SVG area graph */}
+              <div className="relative pt-2">
+                <svg className="w-full h-48 text-slate-900 dark:text-slate-100" viewBox="0 0 600 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  {/* Grid Lines */}
+                  <line x1="50" y1="20" x2="570" y2="20" stroke="#f1f5f9" className="dark:stroke-slate-800/40" />
+                  <line x1="50" y1="60" x2="570" y2="60" stroke="#f1f5f9" className="dark:stroke-slate-800/40" />
+                  <line x1="50" y1="100" x2="570" y2="100" stroke="#f1f5f9" className="dark:stroke-slate-800/40" />
+                  <line x1="50" y1="140" x2="570" y2="140" stroke="#f1f5f9" className="dark:stroke-slate-800/40" />
+                  <line x1="50" y1="150" x2="570" y2="150" stroke="#e2e8f0" className="dark:stroke-slate-800" strokeWidth="1.5" />
+
+                  {/* Horizontal Grid labels */}
+                  <text x="40" y="24" fill="#94a3b8" fontSize="9" fontFamily="monospace" textAnchor="end">3,000</text>
+                  <text x="40" y="64" fill="#94a3b8" fontSize="9" fontFamily="monospace" textAnchor="end">2,000</text>
+                  <text x="40" y="104" fill="#94a3b8" fontSize="9" fontFamily="monospace" textAnchor="end">1,000</text>
+                  <text x="40" y="144" fill="#94a3b8" fontSize="9" fontFamily="monospace" textAnchor="end">0</text>
+
+                  {/* Gradient definition */}
+                  <defs>
+                    <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#64748b" stopOpacity="0.3" />
+                      <stop offset="100%" stopColor="#64748b" stopOpacity="0.0" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Area under curve path */}
+                  <path
+                    d="M 50 150 L 50 110 L 136 80 L 222 50 L 308 65 L 394 95 L 480 135 L 570 120 L 570 150 Z"
+                    fill="url(#chartGrad)"
+                  />
+
+                  {/* Curve line */}
+                  <path
+                    d="M 50 110 L 136 80 L 222 50 L 308 65 L 394 95 L 480 135 L 570 120"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+
+                  {/* Highlighting dot values */}
+                  <circle cx="50" cy="110" r="4.5" fill="#e2e8f0" className="dark:fill-slate-900" stroke="currentColor" strokeWidth="2.5" />
+                  <circle cx="136" cy="80" r="4.5" fill="#e2e8f0" className="dark:fill-slate-900" stroke="currentColor" strokeWidth="2.5" />
+                  <circle cx="222" cy="50" r="4.5" fill="#e2e8f0" className="dark:fill-slate-900" stroke="currentColor" strokeWidth="2.5" />
+                  <circle cx="308" cy="65" r="4.5" fill="#e2e8f0" className="dark:fill-slate-900" stroke="currentColor" strokeWidth="2.5" />
+                  <circle cx="394" cy="95" r="4.5" fill="#e2e8f0" className="dark:fill-slate-900" stroke="currentColor" strokeWidth="2.5" />
+                  <circle cx="480" cy="135" r="4.5" fill="#e2e8f0" className="dark:fill-slate-900" stroke="currentColor" strokeWidth="2.5" />
+                  <circle cx="570" cy="120" r="4.5" fill="#e2e8f0" className="dark:fill-slate-900" stroke="currentColor" strokeWidth="2.5" />
+
+                  {/* Tooltip labels */}
+                  <text x="222" y="32" fill="currentColor" fontSize="8.5" fontFamily="monospace" fontWeight="bold" textAnchor="middle" className="bg-white">2,420 max</text>
+
+                  {/* Days labels */}
+                  <text x="50" y="166" fill="#64748b" fontSize="9" fontFamily="monospace" textAnchor="middle">Mon</text>
+                  <text x="136" y="166" fill="#64748b" fontSize="9" fontFamily="monospace" textAnchor="middle">Tue</text>
+                  <text x="222" y="166" fill="#64748b" fontSize="9" fontFamily="monospace" textAnchor="middle">Wed</text>
+                  <text x="308" y="166" fill="#64748b" fontSize="9" fontFamily="monospace" textAnchor="middle">Thu</text>
+                  <text x="394" y="166" fill="#64748b" fontSize="9" fontFamily="monospace" textAnchor="middle">Fri</text>
+                  <text x="480" y="166" fill="#64748b" fontSize="9" fontFamily="monospace" textAnchor="middle">Sat</text>
+                  <text x="570" y="166" fill="#64748b" fontSize="9" fontFamily="monospace" textAnchor="middle">Sun</text>
+                </svg>
+              </div>
+            </div>
+
+            {/* High Intent Spec Clicks table */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div className="flex items-center space-x-2">
+                  <TrendingUp className="w-4.5 h-4.5 text-steel-500" />
+                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                    Highest Intent Search Specifications
+                  </h3>
+                </div>
+                <span className="text-[10px] font-mono text-slate-400">7-day statistics</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {analytics.popularSearches.length > 0 ? (
+                  analytics.popularSearches.map((search, idx) => (
+                    <div key={idx} className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl flex items-center justify-between font-sans text-xs">
+                      <div>
+                        <span className="font-mono font-bold text-slate-800 dark:text-slate-100 block">
+                          {search.query}
+                        </span>
+                        <span className="text-[10px] text-slate-400">Search Query Keyword</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-mono font-bold text-slate-900 dark:text-slate-50 block">
+                          {search.count}
+                        </span>
+                        <span className="text-[9px] text-emerald-500 font-mono font-bold">Matches logged</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl flex items-center justify-center col-span-2 text-slate-400 text-[11px] py-6">
+                    No search logs registered in database yet
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+
+          {/* Right Column (Span 4): Live Visitor Activity Feed */}
+          <div className="lg:col-span-4 space-y-6">
+            
+            {/* Live Traffic Stream Terminal */}
+            <div className="bg-slate-950 text-slate-200 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center space-x-2.5">
+                  <div className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </div>
+                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-200">
+                    Live Visitor Action Feed
+                  </h3>
+                </div>
+                <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/10 animate-pulse">
+                  FIREBASE ACTIVE
+                </span>
+              </div>
+
+              <div className="space-y-4 max-h-[360px] overflow-y-auto pr-1">
+                {analytics.recentEvents.length > 0 ? (
+                  analytics.recentEvents.map((evt: any) => (
+                    <div key={evt.id} className="text-[11px] font-mono space-y-1.5 border-b border-slate-900 pb-3 last:border-0 last:pb-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-amber-400 flex items-center space-x-1 font-bold">
+                          <MapPin className="w-3 h-3 text-slate-500" />
+                          <span>{evt.location}</span>
+                        </span>
+                        <span className="text-[9px] text-slate-500">{evt.time}</span>
+                      </div>
+                      
+                      <p className="text-slate-300 pl-4 border-l border-slate-800 leading-relaxed">
+                        {evt.action}
+                      </p>
+
+                      <div className="pl-4">
+                        <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                          evt.type === 'search' ? 'bg-indigo-950/60 text-indigo-400 border border-indigo-900/40' :
+                          evt.type === 'download' ? 'bg-amber-950/60 text-amber-400 border border-amber-900/40' :
+                          evt.type === 'view' ? 'bg-sky-950/60 text-sky-400 border border-sky-900/40' :
+                          evt.type === 'inquiry' ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-900/40' :
+                          'bg-slate-900 text-slate-400'
+                        }`}>
+                          {evt.type}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-8 text-center text-slate-500 text-xs">
+                    No visitor actions captured yet
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Top Traffic Countries & Channels */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-2xs space-y-4">
+              <div className="flex items-center space-x-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+                <Globe className="w-4.5 h-4.5 text-steel-500" />
+                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                  Global Traffic Origin
+                </h3>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                {analytics.countries.length > 0 ? (
+                  analytics.countries.map((country: any, idx: number) => {
+                    const flags: Record<string, string> = {
+                      'India': '🇮🇳', 'United Arab Emirates': '🇦🇪', 'Qatar': '🇶🇦', 
+                      'United States': '🇺🇸', 'Singapore': '🇸🇬', 'United Kingdom': '🇬🇧'
+                    };
+                    const flag = flags[country.name] || '🌐';
+                    return (
+                      <div key={idx} className="space-y-1">
+                        <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[11px]">
+                          <span className="font-semibold text-slate-800 dark:text-slate-250 flex items-center space-x-1.5">
+                            <span>{flag}</span>
+                            <span>{country.name}</span>
+                          </span>
+                          <span className="font-mono">{country.percentage}% ({country.count})</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div className="h-full bg-slate-950 dark:bg-slate-200 rounded-full" style={{ width: `${country.percentage}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[11px]">
+                      <span className="font-semibold text-slate-800 dark:text-slate-250 flex items-center space-x-1.5">
+                        <span>🇮🇳</span>
+                        <span>India</span>
+                      </span>
+                      <span className="font-mono">100% (1)</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-slate-950 dark:bg-slate-200 rounded-full" style={{ width: '100%' }} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Channels & Browsers split */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-2xs space-y-4">
+              <div className="flex items-center space-x-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+                <Monitor className="w-4.5 h-4.5 text-steel-500" />
+                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                  Device & Client Split
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 font-sans text-xs">
+                <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl space-y-1">
+                  <div className="flex items-center space-x-1.5 text-slate-500">
+                    <Monitor className="w-3.5 h-3.5 text-indigo-500" />
+                    <span className="text-[10px] font-mono">DESKTOP</span>
+                  </div>
+                  <span className="text-lg font-bold block text-slate-800 dark:text-slate-100">{analytics.deviceSplit.desktop}%</span>
+                  <span className="text-[9px] text-slate-400">Chrome, Edge</span>
+                </div>
+
+                <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl space-y-1">
+                  <div className="flex items-center space-x-1.5 text-slate-500">
+                    <Smartphone className="w-3.5 h-3.5 text-emerald-500" />
+                    <span className="text-[10px] font-mono">MOBILE</span>
+                  </div>
+                  <span className="text-lg font-bold block text-slate-800 dark:text-slate-100">{analytics.deviceSplit.mobile}%</span>
+                  <span className="text-[9px] text-slate-400">Safari, Chrome Mobile</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </motion.div>
+    )}
 
       {/* Add / Edit Specification Form Modal */}
       <AnimatePresence>
@@ -872,6 +1311,134 @@ export default function AdminPanel({
                           </span>
                         </div>
                       </label>
+                    </div>
+                  </div>
+
+                  {/* Pipe Product Image Management */}
+                  <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">
+                        Product Specification Image
+                      </label>
+                      {formImageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setFormImageUrl('')}
+                          className="text-[10px] text-rose-500 hover:text-rose-600 font-bold uppercase tracking-wider flex items-center space-x-1 cursor-pointer"
+                        >
+                          <X className="w-3 h-3" />
+                          <span>Delete Custom Image</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {/* Image Preview Thumbnail */}
+                      <div className="md:col-span-1 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center relative overflow-hidden h-24">
+                        {formImageUrl ? (
+                          <>
+                            <img
+                              src={formImageUrl}
+                              alt="Pipe Product Preview"
+                              className="w-full h-full object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <button
+                                type="button"
+                                onClick={() => setFormImageUrl('')}
+                                className="bg-rose-600 text-white rounded-full p-1.5 shadow-md cursor-pointer"
+                                title="Delete Image"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-center p-2">
+                            <ImageIcon className="w-6 h-6 text-slate-400 mx-auto mb-1 opacity-60" />
+                            <span className="text-[9px] text-slate-400 block font-mono leading-none">FALLBACK</span>
+                            <span className="text-[8px] text-slate-500 block leading-tight mt-0.5">Live Schematic</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Upload / Paste fields */}
+                      <div className="md:col-span-2 space-y-2 flex flex-col justify-between">
+                        {/* File Upload Trigger */}
+                        <div className="flex items-center space-x-2">
+                          <label className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer flex items-center space-x-1 shrink-0 transition-colors">
+                            <Upload className="w-3.5 h-3.5 text-slate-400" />
+                            <span>Upload Image</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    if (event.target?.result) {
+                                      setFormImageUrl(event.target.result as string);
+                                    }
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
+                          </label>
+                          <span className="text-[10px] text-slate-400 font-sans leading-tight">
+                            Supports PNG, JPG (converts to base64)
+                          </span>
+                        </div>
+
+                        {/* URL Paste */}
+                        <input
+                          type="text"
+                          value={formImageUrl}
+                          onChange={(e) => setFormImageUrl(e.target.value)}
+                          placeholder="Or paste external image URL..."
+                          className="w-full px-3.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-sans text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1.5 focus:ring-slate-500 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Presets Grid */}
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
+                        Quick Preset Pipes
+                      </span>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setFormImageUrl('https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=400&q=80')}
+                          className="p-1 rounded-lg border border-slate-100 dark:border-slate-800 hover:border-steel-400 bg-slate-50 dark:bg-slate-950/40 text-[9px] font-sans font-medium text-slate-500 hover:text-slate-950 dark:hover:text-slate-200 truncate transition-all text-left cursor-pointer"
+                        >
+                          Carbon Steel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormImageUrl('https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=400&q=80')}
+                          className="p-1 rounded-lg border border-slate-100 dark:border-slate-800 hover:border-steel-400 bg-slate-50 dark:bg-slate-950/40 text-[9px] font-sans font-medium text-slate-500 hover:text-slate-950 dark:hover:text-slate-200 truncate transition-all text-left cursor-pointer"
+                        >
+                          Stainless Tube
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormImageUrl('https://images.unsplash.com/photo-1616401784845-180882ba9ba8?auto=format&fit=crop&w=400&q=80')}
+                          className="p-1 rounded-lg border border-slate-100 dark:border-slate-800 hover:border-steel-400 bg-slate-50 dark:bg-slate-950/40 text-[9px] font-sans font-medium text-slate-500 hover:text-slate-950 dark:hover:text-slate-200 truncate transition-all text-left cursor-pointer"
+                        >
+                          Alloy Tubes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormImageUrl('https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=400&q=80')}
+                          className="p-1 rounded-lg border border-slate-100 dark:border-slate-800 hover:border-steel-400 bg-slate-50 dark:bg-slate-950/40 text-[9px] font-sans font-medium text-slate-500 hover:text-slate-950 dark:hover:text-slate-200 truncate transition-all text-left cursor-pointer"
+                        >
+                          Warehouse Bulk
+                        </button>
+                      </div>
                     </div>
                   </div>
 

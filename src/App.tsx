@@ -28,6 +28,7 @@ import DetailsModal from './components/DetailsModal';
 import Logo from './components/Logo';
 import LoginModal from './components/LoginModal';
 import AdminPanel from './components/AdminPanel';
+import { initializeVisitorTracking, logVisitorAction } from './lib/firebase';
 
 export default function App() {
   // State for search queries and filter choices
@@ -143,6 +144,23 @@ export default function App() {
   // State for tracking why they were logged out
   const [logoutReason, setLogoutReason] = useState<'session' | 'afk' | null>(null);
 
+  // Initialize Real-time Visitor Session & Active Activity Heartbeats
+  useEffect(() => {
+    initializeVisitorTracking();
+  }, []);
+
+  // Log search queries after a 1.5s debounce to avoid flooding
+  useEffect(() => {
+    const queryStr = filters.searchQuery.trim();
+    if (!queryStr) return;
+
+    const timer = setTimeout(() => {
+      logVisitorAction(`Searched "${queryStr}"`, 'search');
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [filters.searchQuery]);
+
   // Admin authentication handlers
   const handleLoginSuccess = () => {
     setIsAdminLoggedIn(true);
@@ -245,6 +263,25 @@ export default function App() {
   const [hasInteractedMaterial, setHasInteractedMaterial] = useState(false);
   const [hasInteractedType, setHasInteractedType] = useState(false);
   const [hasInteractedSearch, setHasInteractedSearch] = useState(false);
+
+  // Log active filter changes
+  useEffect(() => {
+    if (filters.material !== 'All' && hasInteractedMaterial) {
+      logVisitorAction(`Filtered material by "${filters.material}"`, 'filter');
+    }
+  }, [filters.material, hasInteractedMaterial]);
+
+  useEffect(() => {
+    if (filters.itemType !== 'All' && hasInteractedType) {
+      logVisitorAction(`Filtered product type by "${filters.itemType}"`, 'filter');
+    }
+  }, [filters.itemType, hasInteractedType]);
+
+  useEffect(() => {
+    if (filters.ibrOnly) {
+      logVisitorAction(`Enabled IBR Approved filter`, 'filter');
+    }
+  }, [filters.ibrOnly]);
 
   // Active filter change handler
   const handleFilterChange = (
@@ -663,7 +700,10 @@ export default function App() {
                         key={item.id}
                         item={item}
                         searchQuery={filters.searchQuery}
-                        onSelect={setSelectedItem}
+                        onSelect={(item) => {
+                          setSelectedItem(item);
+                          logVisitorAction(`Viewed "${item.itemName} - ${item.specification} ${item.grade}"`, 'view');
+                        }}
                         isConsolidated={filters.consolidate}
                       />
                     ))
