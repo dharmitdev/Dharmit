@@ -1,0 +1,62 @@
+{
+  "entities": {
+    "Session": {
+      "title": "Session",
+      "description": "Visitor active session tracking info",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "visitorId": { "type": "string" },
+        "location": { "type": "string" },
+        "deviceType": { "type": "string" },
+        "userAgent": { "type": "string" },
+        "referrer": { "type": "string" },
+        "firstSeen": { "type": "string" },
+        "lastActive": { "type": "string" }
+      },
+      "required": ["id", "visitorId", "location", "deviceType", "userAgent", "referrer", "firstSeen", "lastActive"]
+    },
+    "Pageview": {
+      "title": "Pageview",
+      "description": "Individual page view log",
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string" },
+        "visitorId": { "type": "string" },
+        "location": { "type": "string" },
+        "deviceType": { "type": "string" },
+        "referrer": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["sessionId", "visitorId", "location", "deviceType", "referrer", "timestamp"]
+    },
+    "Action": {
+      "title": "Action",
+      "description": "User logged action (search, click, filter, etc.)",
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string" },
+        "visitorId": { "type": "string" },
+        "location": { "type": "string" },
+        "action": { "type": "string" },
+        "type": { "type": "string", "enum": ["search", "view", "filter", "download", "share", "inquiry"] },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["sessionId", "visitorId", "location", "action", "type", "timestamp"]
+    }
+  },
+  "firestore": {
+    "sessions/{sessionId}": {
+      "schema": "Session",
+      "description": "Active visitor sessions"
+    },
+    "pageviews/{pageviewId}": {
+      "schema": "Pageview",
+      "description": "Pageview logging history"
+    },
+    "actions/{actionId}": {
+      "schema": "Action",
+      "description": "Visitor custom interactions and search actions"
+    }
+  }
+}

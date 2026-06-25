@@ -74,7 +74,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
     setIsSubmitting(true);
 
     const enteredEmail = email.trim().toLowerCase();
-    const correctPassword = 'Dharmit@3560';
+    const correctPassword = (import.meta.env.VITE_ADMIN_PASSWORD as string) || 'Dharmit@3560';
 
     // Support any valid email address for versatile administrative testing
     if (enteredEmail.includes('@') && password === correctPassword) {
