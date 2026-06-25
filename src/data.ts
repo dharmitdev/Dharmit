@@ -230,6 +230,118 @@ export const consolidatedDataset: ConsolidateItem[] = pipeItems.map((item, idx) 
 });
 
 /**
+ * Calculates search relevance score based strictly on Specification and Grade.
+ * Higher values mean highly accurate exact/full matches.
+ */
+export const getSearchRelevanceScore = (item: ConsolidateItem, query: string): number => {
+  if (!query) return 0;
+  const cleanQuery = query.trim().toLowerCase();
+  const spec = (item.specification || '').toLowerCase();
+  const grade = (item.grade || '').toLowerCase();
+
+  const normQuery = cleanQuery.replace(/[-_.\s]/g, '');
+  const normSpec = spec.replace(/[-_.\s]/g, '');
+  const normGrade = grade.replace(/[-_.\s]/g, '');
+
+  // 1. Direct absolute exact match of query with spec or grade
+  if (spec === cleanQuery || grade === cleanQuery) {
+    return 100;
+  }
+  if (normSpec === normQuery || normGrade === normQuery) {
+    return 98;
+  }
+
+  // 2. Both spec and grade exactly match some part of the query (or vice-versa)
+  const combined = `${spec} ${grade}`;
+  const combinedNorm = `${normSpec}${normGrade}`;
+  if (combined === cleanQuery || combinedNorm === normQuery) {
+    return 95;
+  }
+
+  // 3. Contained as a full substring on spec or grade
+  if (spec.includes(cleanQuery)) {
+    const isWordBoundary = new RegExp(`\\b${cleanQuery}\\b`, 'i').test(spec);
+    return isWordBoundary ? 90 : 80;
+  }
+  if (grade.includes(cleanQuery)) {
+    const isWordBoundary = new RegExp(`\\b${cleanQuery}\\b`, 'i').test(grade);
+    return isWordBoundary ? 85 : 75;
+  }
+
+  // 4. Token analysis
+  const tokens = cleanQuery.split(/\s+/).filter(t => t.length > 0);
+  if (tokens.length > 0) {
+    const matchedTokensSpec = tokens.filter(t => {
+      const nt = t.replace(/[-_.\s]/g, '');
+      return spec.includes(t) || (nt.length > 0 && normSpec.includes(nt));
+    });
+    const matchedTokensGrade = tokens.filter(t => {
+      const nt = t.replace(/[-_.\s]/g, '');
+      return grade.includes(t) || (nt.length > 0 && normGrade.includes(nt));
+    });
+    
+    const allTokensMatch = tokens.every(t => {
+      const nt = t.replace(/[-_.\s]/g, '');
+      return spec.includes(t) || grade.includes(t) || (nt.length > 0 && (normSpec.includes(nt) || normGrade.includes(nt)));
+    });
+
+    if (allTokensMatch) {
+      let score = 50; // base score for matching all tokens
+
+      // If we match both fields, that is high quality
+      if (matchedTokensSpec.length > 0 && matchedTokensGrade.length > 0) {
+        score = 75;
+      }
+
+      // Exact token-to-field matching boost:
+      // Check if any token matches the grade or spec exactly
+      let exactMatches = 0;
+      tokens.forEach(t => {
+        const nt = t.replace(/[-_.\s]/g, '');
+        if (t === grade || nt === normGrade) {
+          exactMatches += 1;
+        }
+        if (t === spec || nt === normSpec) {
+          exactMatches += 1;
+        }
+      });
+      score += exactMatches * 15;
+
+      // Fine-grained character length penalty so shorter, more precise names are ranked higher
+      const totalFieldLength = spec.length + grade.length;
+      const totalTokenLength = tokens.reduce((sum, t) => sum + t.length, 0);
+      const extraLen = Math.max(0, totalFieldLength - totalTokenLength);
+      
+      // Subtract a small fraction based on extra characters to break ties in favor of precise matches
+      score -= extraLen * 0.05;
+
+      return Math.max(0, score);
+    }
+
+    // Related results / partial token matches
+    const matchedCount = tokens.filter(t => {
+      const nt = t.replace(/[-_.\s]/g, '');
+      return spec.includes(t) || grade.includes(t) || (nt.length > 0 && (normSpec.includes(nt) || normGrade.includes(nt)));
+    }).length;
+
+    if (matchedCount > 0) {
+      const baseRatioScore = 20 + (matchedCount / tokens.length) * 25;
+      return Math.max(0, baseRatioScore);
+    }
+  }
+
+  // 5. Normalized fallback
+  if (normSpec.includes(normQuery) || normGrade.includes(normQuery)) {
+    return 15;
+  }
+  if ((normSpec + normGrade).includes(normQuery)) {
+    return 10;
+  }
+
+  return 0;
+};
+
+/**
  * Searches the pipe and tube database using an advanced token-based matching logic
  * that supports exceptional query patterns like "A106 b" or "A106 b IBR".
  */
@@ -249,7 +361,8 @@ export const searchPipeItems = (
     const tokens = cleanQuery.split(/\s+/).filter(t => t.length > 0);
     
     filtered = filtered.filter(item => {
-      const matchText = `${item.itemName} ${item.specification} ${item.grade}`.toLowerCase();
+      // Exclude item name as requested, only match specification and grade
+      const matchText = `${item.specification} ${item.grade}`.toLowerCase();
       const normMatchText = matchText.replace(/[-_.\s]/g, '');
       
       // Every single token must match somewhere in the text

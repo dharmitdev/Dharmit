@@ -21,7 +21,7 @@ import {
   LayoutGrid
 } from 'lucide-react';
 import { FilterState, ConsolidateItem, ActivityLog } from './types';
-import { consolidatedDataset, searchPipeItems, pipeItems } from './data';
+import { consolidatedDataset, searchPipeItems, pipeItems, getSearchRelevanceScore } from './data';
 import { SearchBar, FilterSidebar } from './components/FilterPanel';
 import ItemRow from './components/ItemRow';
 import DetailsModal from './components/DetailsModal';
@@ -293,6 +293,16 @@ export default function App() {
 
     // Apply sorting
     finalResults.sort((a, b) => {
+      // If there is an active search query, prioritize sorting by relevance score descending
+      const query = filters.searchQuery.trim();
+      if (query) {
+        const scoreA = getSearchRelevanceScore(a, query);
+        const scoreB = getSearchRelevanceScore(b, query);
+        if (scoreA !== scoreB) {
+          return scoreB - scoreA; // Descending order (highest relevance first)
+        }
+      }
+
       let valA = '';
       let valB = '';
 
@@ -667,7 +677,7 @@ export default function App() {
             </button>
             <span>•</span>
             <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded text-[10px] font-semibold text-slate-500 dark:text-slate-400 tracking-wider">
-              v1.1.0
+              v1.0.2
             </span>
           </div>
         </div>

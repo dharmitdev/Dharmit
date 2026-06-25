@@ -38,6 +38,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
   // Clean-up on close
   const handleClose = () => {
     setStep('credentials');
+    setEmail('');
+    setPassword('');
     setOtp(['', '', '', '', '', '']);
     setOtpError('');
     setError('');
@@ -66,8 +68,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
     }
   };
 
-  const handleCredentialsSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCredentialsSubmit = async (e?: React.FormEvent | React.KeyboardEvent) => {
+    if (e) e.preventDefault();
     setError('');
     setIsSubmitting(true);
 
@@ -89,6 +91,13 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
       setError('Invalid administrative email address or security key.');
     }
     setIsSubmitting(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleCredentialsSubmit(e);
+    }
   };
 
   const handleOtpSubmit = (e: React.FormEvent) => {
@@ -215,7 +224,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
 
             {/* Step 1: Username & Password */}
             {step === 'credentials' ? (
-              <form onSubmit={handleCredentialsSubmit} className="space-y-4">
+              <div onKeyDown={handleKeyDown} className="space-y-4">
                 {error && (
                   <motion.div
                     initial={{ opacity: 0, y: -5 }}
@@ -240,6 +249,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="abc@gmail.com"
+                      autoComplete="off"
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-sans text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1.5 focus:ring-slate-500 dark:focus:ring-slate-400 transition-all placeholder:text-slate-400/70"
                       id="login-email-input"
                     />
@@ -256,11 +266,13 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
                     <input
-                      type={showPassword ? 'text' : 'password'}
+                      type="text"
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••••••"
+                      autoComplete="off"
+                      style={{ WebkitTextSecurity: showPassword ? 'none' : 'disc' } as React.CSSProperties}
                       className="w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-sans text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1.5 focus:ring-slate-500 dark:focus:ring-slate-400 transition-all placeholder:text-slate-400/70"
                       id="login-password-input"
                     />
@@ -277,7 +289,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
 
                 {/* Submit Button */}
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={() => handleCredentialsSubmit()}
                   disabled={isSubmitting}
                   className="w-full py-2.5 bg-slate-950 dark:bg-white text-white dark:text-slate-950 font-sans font-bold text-xs rounded-xl hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-md mt-6"
                   id="login-submit-button"
@@ -291,7 +304,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                     </>
                   )}
                 </button>
-              </form>
+              </div>
             ) : (
               /* Step 2: OTP Entry */
               <form onSubmit={handleOtpSubmit} className="space-y-5">
@@ -314,7 +327,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                     {email}
                   </p>
                   <div className="text-[10px] text-amber-600 dark:text-amber-400 mt-2 bg-amber-50/70 dark:bg-amber-950/20 p-2.5 rounded-xl border border-amber-100 dark:border-amber-900/30 leading-normal text-left font-sans">
-                    💡 <strong>First-Time Setup:</strong> If the email hasn't arrived, please check your Spam/Junk folder for a <strong>FormSubmit Activation</strong> request to authorize this application to deliver messages.
+                    💡 <strong>Notice:</strong> If you do not see the verification code in your inbox, please check your spam/junk folder as well.
                   </div>
                 </div>
 

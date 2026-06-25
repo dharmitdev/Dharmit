@@ -112,7 +112,7 @@ export default function ItemRow({ item, searchQuery, onSelect, isConsolidated }:
 
         {/* Primary Highlighted Item Name (Big and Bold as requested) */}
         <h3 className="text-lg font-display font-extrabold text-slate-900 dark:text-slate-50 tracking-tight leading-snug">
-          <HighlightText text={item.itemName} highlight={searchQuery} />
+          {item.itemName}
         </h3>
 
         {/* Item standard specification / code and Grade for easy cross-verification */}
