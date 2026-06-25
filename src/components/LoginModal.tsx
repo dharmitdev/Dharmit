@@ -21,7 +21,6 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
   const [otp, setOtp] = useState<string[]>(['', '', '', '', '', '']);
   const [generatedOtp, setGeneratedOtp] = useState<string>('');
   const [timer, setTimer] = useState<number>(120);
-  const [showOtpNotification, setShowOtpNotification] = useState<boolean>(false);
   const [otpError, setOtpError] = useState<string>('');
   const [isOtpSubmitting, setIsOtpSubmitting] = useState<boolean>(false);
 
@@ -42,7 +41,6 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
     setOtp(['', '', '', '', '', '']);
     setOtpError('');
     setError('');
-    setShowOtpNotification(false);
     onClose();
   };
 
@@ -87,7 +85,6 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
       setStep('otp');
       setOtp(['', '', '', '', '', '']);
       setTimer(120);
-      setShowOtpNotification(true);
     } else {
       setError('Invalid administrative email address or security key.');
     }
@@ -100,12 +97,24 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
     setIsOtpSubmitting(true);
 
     setTimeout(() => {
+      if (timer <= 0) {
+        setOtpError('The verification code has expired. Please request a new verification code.');
+        setIsOtpSubmitting(false);
+        return;
+      }
+
       const enteredOtp = otp.join('');
+      if (enteredOtp.length < 6 || otp.some(digit => !digit)) {
+        setOtpError('Please enter all 6 digits of the verification code.');
+        setIsOtpSubmitting(false);
+        return;
+      }
+
       if (enteredOtp === generatedOtp) {
         onLoginSuccess();
         handleClose();
       } else {
-        setOtpError('The 6-digit verification code you entered is invalid. Please check and try again.');
+        setOtpError('The 6-digit verification code you entered is incorrect. Please check your email and try again.');
       }
       setIsOtpSubmitting(false);
     }, 600);
@@ -305,7 +314,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                     {email}
                   </p>
                   <div className="text-[10px] text-amber-600 dark:text-amber-400 mt-2 bg-amber-50/70 dark:bg-amber-950/20 p-2.5 rounded-xl border border-amber-100 dark:border-amber-900/30 leading-normal text-left font-sans">
-                    💡 <strong>First-Time Setup:</strong> If the email hasn't arrived, please check your Spam/Junk folder for a <strong>FormSubmit Activation</strong> request to authorize this application to deliver messages, or use the <strong>Autofill Code</strong> simulator on the top-right.
+                    💡 <strong>First-Time Setup:</strong> If the email hasn't arrived, please check your Spam/Junk folder for a <strong>FormSubmit Activation</strong> request to authorize this application to deliver messages.
                   </div>
                 </div>
 
@@ -347,7 +356,6 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
                       setOtp(['', '', '', '', '', '']);
                       setTimer(120);
                       setOtpError('');
-                      setShowOtpNotification(true);
                       await sendOtpEmail(email.trim(), newCode);
                     }}
                     className="text-slate-500 hover:text-slate-800 dark:hover:text-slate-100 font-medium disabled:opacity-30 flex items-center gap-1 transition-colors cursor-pointer"
@@ -388,61 +396,6 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
           </motion.div>
         </div>
       )}
-
-      {/* Simulated Email Notification Toast */}
-      <AnimatePresence>
-        {isOpen && showOtpNotification && (
-          <motion.div
-            initial={{ opacity: 0, y: -40, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="fixed top-6 right-6 z-55 w-full max-w-sm bg-slate-950 text-white rounded-2xl p-4 shadow-2xl border border-slate-800/80 font-sans"
-            id="simulated-email-toast"
-          >
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-semibold tracking-wider uppercase text-amber-500 flex items-center gap-1.5 font-mono">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  Mail Delivery Simulator
-                </span>
-              </div>
-              <button
-                onClick={() => setShowOtpNotification(false)}
-                className="text-slate-500 hover:text-slate-300 p-1 rounded transition-colors cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            
-            <div className="space-y-1 text-slate-300 text-xs">
-              <p className="text-slate-400 text-[10px]">
-                To: <span className="text-slate-200 font-mono">{email}</span>
-              </p>
-              <p className="text-slate-400 text-[10px]">
-                Subject: <span className="text-slate-200 font-sans font-medium">[Materials Desk] Authentication Verification OTP</span>
-              </p>
-              
-              <div className="mt-3 p-3 bg-slate-900 border border-slate-800/60 rounded-xl flex items-center justify-between">
-                <div>
-                  <span className="text-[9px] text-slate-500 block font-mono">Verification Code</span>
-                  <span className="text-lg font-bold tracking-widest text-slate-50 font-mono">{generatedOtp}</span>
-                </div>
-                
-                <button
-                  onClick={() => {
-                    setOtp(generatedOtp.split(''));
-                    setShowOtpNotification(false);
-                  }}
-                  className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-sans font-bold text-[10px] rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Autofill Code
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </AnimatePresence>
   );
 }
