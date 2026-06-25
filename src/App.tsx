@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   FileSpreadsheet, 
   Layers, 
@@ -12,14 +13,21 @@ import {
   Compass,
   ArrowUpDown,
   BookOpen,
-  X
+  X,
+  Shield,
+  ShieldAlert,
+  LogOut,
+  Settings,
+  LayoutGrid
 } from 'lucide-react';
-import { FilterState, ConsolidateItem } from './types';
+import { FilterState, ConsolidateItem, ActivityLog } from './types';
 import { consolidatedDataset, searchPipeItems, pipeItems } from './data';
 import { SearchBar, FilterSidebar } from './components/FilterPanel';
 import ItemRow from './components/ItemRow';
 import DetailsModal from './components/DetailsModal';
 import Logo from './components/Logo';
+import LoginModal from './components/LoginModal';
+import AdminPanel from './components/AdminPanel';
 
 export default function App() {
   // State for search queries and filter choices
@@ -30,6 +38,131 @@ export default function App() {
     ibrOnly: false,
     consolidate: true,
   });
+
+  // Dynamic persistent dataset
+  const [dataset, setDataset] = useState<ConsolidateItem[]>(() => {
+    const saved = localStorage.getItem('materials_desk_dataset');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const seenIds = new Set<string>();
+          return parsed.map((item, idx) => {
+            let uniqueId = item.id;
+            if (!uniqueId || seenIds.has(uniqueId)) {
+              uniqueId = `pipe-fixed-${idx}-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+            }
+            seenIds.add(uniqueId);
+            return {
+              ...item,
+              id: uniqueId
+            };
+          });
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return consolidatedDataset;
+  });
+
+  // Admin access states
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
+    return localStorage.getItem('materials_desk_admin_logged_in') === 'true';
+  });
+  const [adminViewActive, setAdminViewActive] = useState<boolean>(false);
+  const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
+  const [showWelcomeToast, setShowWelcomeToast] = useState<boolean>(false);
+  
+  // Activity logging state
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(() => {
+    const saved = localStorage.getItem('materials_desk_activity_logs');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const seenIds = new Set<string>();
+          return parsed.map((log, idx) => {
+            let logId = log.id;
+            if (!logId || seenIds.has(logId)) {
+              logId = `log-fixed-${idx}-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+            }
+            seenIds.add(logId);
+            return {
+              ...log,
+              id: logId
+            };
+          });
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return [];
+  });
+
+  // Save activity logs to localStorage on change
+  useEffect(() => {
+    localStorage.setItem('materials_desk_activity_logs', JSON.stringify(activityLogs));
+  }, [activityLogs]);
+
+  // Handler to update the dataset globally and save it with strict unique ID sanitization
+  const handleUpdateDataset = (newDataset: ConsolidateItem[]) => {
+    const seenIds = new Set<string>();
+    const sanitizedDataset = newDataset.map((item, idx) => {
+      let uniqueId = item.id;
+      if (!uniqueId || seenIds.has(uniqueId)) {
+        uniqueId = `pipe-fixed-${idx}-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+      }
+      seenIds.add(uniqueId);
+      return {
+        ...item,
+        id: uniqueId
+      };
+    });
+    setDataset(sanitizedDataset);
+    localStorage.setItem('materials_desk_dataset', JSON.stringify(sanitizedDataset));
+  };
+
+  // Helper to add activity log
+  const handleAddActivityLog = (
+    action: 'add' | 'edit' | 'delete' | 'reset',
+    item: Partial<ConsolidateItem>
+  ) => {
+    const newLog: ActivityLog = {
+      id: `log-${Date.now()}`,
+      action,
+      itemName: item.itemName || '',
+      specification: item.specification || '',
+      grade: item.grade || '',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' ' + new Date().toLocaleDateString([], { month: 'short', day: 'numeric' })
+    };
+    setActivityLogs(prev => [newLog, ...prev].slice(0, 50)); // cap at 50 logs for cleanliness
+  };
+
+  // Admin authentication handlers
+  const handleLoginSuccess = () => {
+    setIsAdminLoggedIn(true);
+    localStorage.setItem('materials_desk_admin_logged_in', 'true');
+    setAdminViewActive(true);
+    handleAddActivityLog('reset', { itemName: 'Admin Logged In Successfully' });
+    setShowWelcomeToast(true);
+  };
+
+  useEffect(() => {
+    if (showWelcomeToast) {
+      const timer = setTimeout(() => {
+        setShowWelcomeToast(false);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [showWelcomeToast]);
+
+  const handleLogout = () => {
+    setIsAdminLoggedIn(false);
+    localStorage.setItem('materials_desk_admin_logged_in', 'false');
+    setAdminViewActive(false);
+  };
 
   // Track if user has interacted with specific filter categories
   const [hasInteractedMaterial, setHasInteractedMaterial] = useState(false);
@@ -88,19 +221,33 @@ export default function App() {
 
   // Compute dataset-wide statistics
   const stats = useMemo(() => {
-    const totalOriginalRows = consolidatedDataset.reduce((sum, item) => sum + item.count, 0);
-    const uniqueSpecs = new Set(consolidatedDataset.map(item => item.specification).filter(Boolean)).size;
-    const uniqueGrades = new Set(consolidatedDataset.map(item => item.grade).filter(Boolean)).size;
-    const totalDuplicatesCount = totalOriginalRows - consolidatedDataset.length;
+    const totalOriginalRows = dataset.reduce((sum, item) => sum + item.count, 0);
+    const uniqueSpecs = new Set(dataset.map(item => item.specification).filter(Boolean)).size;
+    const uniqueGrades = new Set(dataset.map(item => item.grade).filter(Boolean)).size;
+    const totalDuplicatesCount = totalOriginalRows - dataset.length;
+
+    // Count pipes and tubes separately
+    let pipeCount = 0;
+    let tubeCount = 0;
+    dataset.forEach(item => {
+      const name = (item.itemName || '').toLowerCase();
+      if (name.includes('pipe')) {
+        pipeCount++;
+      } else {
+        tubeCount++;
+      }
+    });
 
     return {
       totalOriginalRows,
-      uniqueProfilesCount: consolidatedDataset.length,
+      uniqueProfilesCount: dataset.length,
       uniqueSpecs,
       uniqueGrades,
-      totalDuplicatesCount
+      totalDuplicatesCount,
+      pipeCount,
+      tubeCount
     };
-  }, []);
+  }, [dataset]);
 
   // Check if user has actively searched or filtered for items
   const isSearchOrFilterActive = useMemo(() => {
@@ -120,7 +267,7 @@ export default function App() {
 
     // Search and filter consolidated unique dataset
     const results = searchPipeItems(
-      consolidatedDataset,
+      dataset,
       filters.searchQuery,
       filters.material,
       filters.itemType,
@@ -168,7 +315,7 @@ export default function App() {
     });
 
     return finalResults;
-  }, [isSearchOrFilterActive, filters, sortBy, sortOrder]);
+  }, [isSearchOrFilterActive, filters, sortBy, sortOrder, dataset]);
 
   const toggleSort = (field: 'spec' | 'count' | 'material') => {
     if (sortBy === field) {
@@ -196,233 +343,300 @@ export default function App() {
               </h1>
             </div>
           </div>
+
+          {/* Admin panel triggers */}
+          <div className="flex items-center space-x-2 sm:space-x-4">
+            {isAdminLoggedIn ? (
+              <div className="flex items-center space-x-2 sm:space-x-4">
+                {/* View toggle */}
+                <button
+                  onClick={() => setAdminViewActive(!adminViewActive)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1 border cursor-pointer ${
+                    adminViewActive 
+                      ? 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border-slate-250 dark:border-slate-700 text-slate-800 dark:text-slate-100' 
+                      : 'bg-slate-950 hover:bg-slate-900 dark:bg-white dark:hover:bg-slate-100 border-transparent text-white dark:text-slate-950 shadow-sm'
+                  }`}
+                  id="admin-toggle-view"
+                >
+                  {adminViewActive ? (
+                    <>
+                      <LayoutGrid className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Public App</span>
+                    </>
+                  ) : (
+                    <>
+                      <Settings className="w-3.5 h-3.5" />
+                      <span>Console</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Logout */}
+                <button
+                  onClick={handleLogout}
+                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all cursor-pointer"
+                  title="Sign out of administration session"
+                  id="admin-logout-button"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowLoginModal(true)}
+                className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white rounded-lg border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all flex items-center space-x-1 cursor-pointer"
+                id="admin-login-button"
+              >
+                <Shield className="w-3.5 h-3.5" />
+                <span>Admin Login</span>
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
       {/* Main Container */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 mt-8 space-y-8">
         
-        {/* Visual Steel Dashboard Metrics Bar */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-4" id="dashboard-metrics">
-          {/* Total Original Entries */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-4 shadow-2xs hover:shadow-xs transition-all relative overflow-hidden group">
-            <div className="absolute right-3 top-3 opacity-10 group-hover:scale-110 transition-transform text-slate-600 dark:text-slate-300">
-              <FileSpreadsheet className="w-12 h-12" />
-            </div>
-            <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400 block">Spreadsheet Rows</span>
-            <span className="text-2xl font-display font-bold text-slate-950 dark:text-slate-100 block mt-1">
-              {stats.totalOriginalRows}
-            </span>
-            <span className="text-[10px] text-slate-400 mt-0.5 block font-sans">Total inputs loaded</span>
-          </div>
-
-          {/* Duplicates consolidated */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-4 shadow-2xs hover:shadow-xs transition-all relative overflow-hidden group">
-            <div className="absolute right-3 top-3 opacity-10 group-hover:scale-110 transition-transform text-slate-600 dark:text-slate-300">
-              <Layers className="w-12 h-12" />
-            </div>
-            <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400 block">Duplicates Filtered</span>
-            <span className="text-2xl font-display font-bold text-amber-600 dark:text-amber-400 block mt-1">
-              {stats.totalDuplicatesCount}
-            </span>
-            <span className="text-[10px] text-slate-400 mt-0.5 block font-sans">Redundant rows removed</span>
-          </div>
-
-          {/* Unique Standards */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-4 shadow-2xs hover:shadow-xs transition-all relative overflow-hidden group">
-            <div className="absolute right-3 top-3 opacity-10 group-hover:scale-110 transition-transform text-slate-600 dark:text-slate-300">
-              <BookOpen className="w-12 h-12" />
-            </div>
-            <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400 block">Standards Code</span>
-            <span className="text-2xl font-display font-bold text-steel-500 block mt-1">
-              {stats.uniqueSpecs}
-            </span>
-            <span className="text-[10px] text-slate-400 mt-0.5 block font-sans">Distinct specification codes</span>
-          </div>
-
-          {/* IBR Certified */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-4 shadow-2xs hover:shadow-xs transition-all relative overflow-hidden group">
-            <div className="absolute right-3 top-3 opacity-10 group-hover:scale-110 transition-transform text-slate-600 dark:text-slate-300">
-              <Flame className="w-12 h-12" />
-            </div>
-            <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400 block">High-Temp Grades</span>
-            <span className="text-2xl font-display font-bold text-emerald-600 dark:text-emerald-400 block mt-1">
-              {stats.uniqueGrades}
-            </span>
-            <span className="text-[10px] text-slate-400 mt-0.5 block font-sans">Unique alloy variations</span>
-          </div>
-        </section>
-
-        {/* Prominent Search Bar on top of catalog/filters */}
-        <section>
-          <SearchBar
-            filters={filters}
-            onFilterChange={handleFilterChange}
+        {adminViewActive ? (
+          <AdminPanel
+            dataset={dataset}
+            onUpdateDataset={handleUpdateDataset}
+            activityLogs={activityLogs}
+            onAddActivityLog={handleAddActivityLog}
+            onClose={() => setAdminViewActive(false)}
           />
-        </section>
-
-        {/* Layout Grid: Left Sidebar for filters, Right content for matching catalog */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column: Filter Sidebar */}
-          <aside className="lg:col-span-4">
-            <FilterSidebar
-              filters={filters}
-              onFilterChange={handleFilterChange}
-              totalFiltered={filteredItems.length}
-              totalRaw={filteredItems.reduce((sum, item) => sum + item.count, 0)}
-              hasInteractedMaterial={hasInteractedMaterial}
-              hasInteractedType={hasInteractedType}
-              onReset={resetAll}
-            />
-          </aside>
-
-          {/* Right Column: Matching Pipe & Tube Catalog */}
-          <section className="lg:col-span-8 space-y-4" id="catalog-section">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200/50 dark:border-slate-800/80 pb-3 gap-3">
-              <h2 className="text-lg font-display font-extrabold text-slate-900 dark:text-slate-50 flex items-center space-x-2">
-                <Compass className="w-5 h-5 text-steel-500 shrink-0" />
-                <span>Matching Pipe & Tube Catalog</span>
-              </h2>
-              
-              {/* Sorting controls */}
-              {isSearchOrFilterActive && (
-                <div className="flex flex-wrap items-center gap-1.5 text-xs animate-in fade-in duration-200">
-                  <span className="text-slate-400 mr-1 hidden sm:inline">Sort by:</span>
-                  <button 
-                    onClick={() => toggleSort('spec')}
-                    className={`px-2.5 py-1.5 rounded-md border flex items-center space-x-1 transition-all hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer ${
-                      sortBy === 'spec' ? 'border-steel-300 bg-steel-50/50 text-steel-700 dark:bg-slate-900 dark:border-slate-700 font-semibold' : 'border-slate-200 dark:border-slate-800 text-slate-500'
-                    }`}
-                  >
-                    <span>Code Standard</span>
-                    <ArrowUpDown className="w-3.5 h-3.5" />
-                  </button>
-                  <button 
-                    onClick={() => toggleSort('count')}
-                    className={`px-2.5 py-1.5 rounded-md border flex items-center space-x-1 transition-all hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer ${
-                      sortBy === 'count' ? 'border-steel-300 bg-steel-50/50 text-steel-700 dark:bg-slate-900 dark:border-slate-700 font-semibold' : 'border-slate-200 dark:border-slate-800 text-slate-500'
-                    }`}
-                  >
-                    <span>Occurrences</span>
-                    <ArrowUpDown className="w-3.5 h-3.5" />
-                  </button>
-                  <button 
-                    onClick={() => toggleSort('material')}
-                    className={`px-2.5 py-1.5 rounded-md border flex items-center space-x-1 transition-all hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer ${
-                      sortBy === 'material' ? 'border-steel-300 bg-steel-50/50 text-steel-700 dark:bg-slate-900 dark:border-slate-700 font-semibold' : 'border-slate-200 dark:border-slate-800 text-slate-500'
-                    }`}
-                  >
-                    <span>Material</span>
-                    <ArrowUpDown className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Results list mapping */}
-            <div className="space-y-2.5 min-h-36">
-              {!isSearchOrFilterActive ? (
-                <div className="border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center space-y-4 bg-white dark:bg-slate-900/40">
-                  <Compass className="w-12 h-12 text-steel-500/60 mx-auto animate-pulse" />
-                  <h3 className="font-display font-extrabold text-slate-800 dark:text-slate-100 text-base">
-                    Search or Filter to Explore Catalog
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-sans max-w-md mx-auto leading-relaxed">
-                    The pipe and tube database is currently loaded and offline-ready. Enter a standard/grade code above (e.g., <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-steel-600 dark:text-steel-400">A106</span>, <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-steel-600 dark:text-steel-400">TP304</span>, or <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-steel-600 dark:text-steel-400">DIN 1629</span>), or select specific materials and shapes in the sidebar to display matched pipeline specifications.
-                  </p>
-                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-                    <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400">Try quick searches:</span>
-                    <button 
-                      onClick={() => handleFilterChange({ ...filters, searchQuery: 'A106 b' })}
-                      className="text-[11px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-600 dark:text-slate-350 px-2.5 py-1 rounded-md transition-colors font-mono cursor-pointer border border-slate-200/50 dark:border-slate-750"
-                    >
-                      A106 b
-                    </button>
-                    <button 
-                      onClick={() => handleFilterChange({ ...filters, searchQuery: 'SA213 T91' })}
-                      className="text-[11px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-600 dark:text-slate-350 px-2.5 py-1 rounded-md transition-colors font-mono cursor-pointer border border-slate-200/50 dark:border-slate-750"
-                    >
-                      SA213 T91
-                    </button>
-                    <button 
-                      onClick={() => handleFilterChange({ ...filters, searchQuery: 'DIN 1629' })}
-                      className="text-[11px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-600 dark:text-slate-350 px-2.5 py-1 rounded-md transition-colors font-mono cursor-pointer border border-slate-200/50 dark:border-slate-750"
-                    >
-                      DIN 1629
-                    </button>
-                    <button 
-                      onClick={() => handleFilterChange({ ...filters, material: 'Stainless Steel' })}
-                      className="text-[11px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-600 dark:text-slate-350 px-2.5 py-1 rounded-md transition-colors font-mono cursor-pointer border border-slate-200/50 dark:border-slate-750"
-                    >
-                      Stainless Steel
-                    </button>
+        ) : (
+          <>
+            {/* Visual Steel Dashboard Metrics Bar */}
+            <section className="space-y-4" id="dashboard-metrics">
+              {/* Top Row: Pipe & Tube entries side-by-side */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Pipe Entries */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-4 shadow-2xs hover:shadow-xs transition-all relative overflow-hidden group">
+                  <div className="absolute right-3 top-3 opacity-10 group-hover:scale-110 transition-transform text-slate-600 dark:text-slate-300">
+                    <Layers className="w-12 h-12" />
                   </div>
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400 block">Pipe Entries</span>
+                  <span className="text-2xl font-display font-bold text-slate-950 dark:text-slate-100 block mt-1">
+                    {stats.pipeCount}
+                  </span>
+                  <span className="text-[10px] text-slate-400 mt-0.5 block font-sans">Total distinct pipe catalog items</span>
                 </div>
-              ) : filteredItems.length > 0 ? (
-                filteredItems.map((item) => (
-                  <ItemRow
-                    key={item.id}
-                    item={item}
-                    searchQuery={filters.searchQuery}
-                    onSelect={setSelectedItem}
-                    isConsolidated={filters.consolidate}
-                  />
-                ))
-              ) : (
-                <div className="border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center space-y-3 bg-white dark:bg-slate-900/40">
-                  <HelpCircle className="w-10 h-10 text-slate-300 dark:text-slate-700 mx-auto" />
-                  <h3 className="font-display font-bold text-slate-800 dark:text-slate-200 text-sm">
-                    No specifications match your search query
-                  </h3>
-                  <p className="text-xs text-slate-500 font-sans max-w-sm mx-auto leading-relaxed">
-                    Try typing portions of code like <span className="font-mono">"A106"</span>, <span className="font-mono">"316L"</span>, or clicking the pre-built fuzzy search shortcuts above to check the results.
-                  </p>
-                  <button
-                    onClick={resetAll}
-                    className="text-xs text-steel-500 dark:text-steel-400 font-semibold underline hover:text-steel-700 cursor-pointer"
-                  >
-                    Clear filters and search query
-                  </button>
+
+                {/* Tube Entries */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-4 shadow-2xs hover:shadow-xs transition-all relative overflow-hidden group">
+                  <div className="absolute right-3 top-3 opacity-10 group-hover:scale-110 transition-transform text-slate-600 dark:text-slate-300">
+                    <Layers className="w-12 h-12" />
+                  </div>
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400 block">Tube Entries</span>
+                  <span className="text-2xl font-display font-bold text-slate-950 dark:text-slate-100 block mt-1">
+                    {stats.tubeCount}
+                  </span>
+                  <span className="text-[10px] text-slate-400 mt-0.5 block font-sans">Total distinct tube catalog items</span>
                 </div>
-              )}
-            </div>
-          </section>
-        </div>
+              </div>
 
-        {/* Technical Guidance & FAQs Section */}
-        <section className="pt-8 border-t border-slate-200 dark:border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-6 font-sans">
-          
-          <div className="space-y-2 p-5 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-2xl">
-            <div className="flex items-center space-x-2 text-steel-600 dark:text-steel-400">
-              <Award className="w-4 h-4 shrink-0" />
-              <h4 className="text-xs font-semibold uppercase tracking-wider">ASTM vs. ASME Specifications</h4>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              <strong>ASTM</strong> codes represent material test standards, while <strong>ASME</strong> codes represent pressure piping design requirements. Commonly, an ASME code (e.g. <em>SA213</em>) is physically identical to the corresponding ASTM code (e.g. <em>A213</em>) but carries formal certification for boiler use.
-            </p>
-          </div>
+              {/* Bottom Row: Standards and High-Temp Grades */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Unique Standards */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-4 shadow-2xs hover:shadow-xs transition-all relative overflow-hidden group">
+                  <div className="absolute right-3 top-3 opacity-10 group-hover:scale-110 transition-transform text-slate-600 dark:text-slate-300">
+                    <BookOpen className="w-12 h-12" />
+                  </div>
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400 block">Standards Code</span>
+                  <span className="text-2xl font-display font-bold text-steel-500 block mt-1">
+                    {stats.uniqueSpecs}
+                  </span>
+                  <span className="text-[10px] text-slate-400 mt-0.5 block font-sans">Distinct specification codes</span>
+                </div>
 
-          <div className="space-y-2 p-5 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-2xl">
-            <div className="flex items-center space-x-2 text-rose-500">
-              <Flame className="w-4 h-4 shrink-0" />
-              <h4 className="text-xs font-semibold uppercase tracking-wider">What is IBR Certification?</h4>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              <strong>IBR</strong> stands for Indian Boiler Regulations. Tubes and pipes bearing the <em>IBR</em> grade suffix have undergone hydrostatic, tensile, and chemical tests audited by certified inspectors to guarantee resistance to steam pressures exceeding 1.0 MPa (10 kgf/cm²).
-            </p>
-          </div>
+                {/* High-Temp Grades */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-4 shadow-2xs hover:shadow-xs transition-all relative overflow-hidden group">
+                  <div className="absolute right-3 top-3 opacity-10 group-hover:scale-110 transition-transform text-slate-600 dark:text-slate-300">
+                    <Flame className="w-12 h-12" />
+                  </div>
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400 block">High-Temp Grades</span>
+                  <span className="text-2xl font-display font-bold text-emerald-600 dark:text-emerald-400 block mt-1">
+                    {stats.uniqueGrades}
+                  </span>
+                  <span className="text-[10px] text-slate-400 mt-0.5 block font-sans">Unique alloy variations</span>
+                </div>
+              </div>
+            </section>
 
-          <div className="space-y-2 p-5 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-2xl">
-            <div className="flex items-center space-x-2 text-emerald-600 dark:text-emerald-400">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <h4 className="text-xs font-semibold uppercase tracking-wider">How to read Alloy Suffixes</h4>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              Suffixes like <strong>L</strong> (e.g., <em>316L</em>) denote low carbon content to protect weld margins from corrosion. Suffixes like <strong>H</strong> (e.g., <em>304H</em>) denote high carbon content for superior tensile performance at extreme furnace heats.
-            </p>
-          </div>
+            {/* Prominent Search Bar on top of catalog/filters */}
+            <section>
+              <SearchBar
+                filters={filters}
+                onFilterChange={handleFilterChange}
+              />
+            </section>
 
-        </section>
+            {/* Layout Grid: Left Sidebar for filters, Right content for matching catalog */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              {/* Left Column: Filter Sidebar */}
+              <aside className="lg:col-span-4">
+                <FilterSidebar
+                  filters={filters}
+                  onFilterChange={handleFilterChange}
+                  totalFiltered={filteredItems.length}
+                  totalRaw={filteredItems.reduce((sum, item) => sum + item.count, 0)}
+                  hasInteractedMaterial={hasInteractedMaterial}
+                  hasInteractedType={hasInteractedType}
+                  onReset={resetAll}
+                />
+              </aside>
+
+              {/* Right Column: Matching Pipe & Tube Catalog */}
+              <section className="lg:col-span-8 space-y-4" id="catalog-section">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200/50 dark:border-slate-800/80 pb-3 gap-3">
+                  <h2 className="text-lg font-display font-extrabold text-slate-900 dark:text-slate-50 flex items-center space-x-2">
+                    <Compass className="w-5 h-5 text-steel-500 shrink-0" />
+                    <span>Matching Pipe & Tube Catalog</span>
+                  </h2>
+                  
+                  {/* Sorting controls */}
+                  {isSearchOrFilterActive && (
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs animate-in fade-in duration-200">
+                      <span className="text-slate-400 mr-1 hidden sm:inline">Sort by:</span>
+                      <button 
+                        onClick={() => toggleSort('spec')}
+                        className={`px-2.5 py-1.5 rounded-md border flex items-center space-x-1 transition-all hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer ${
+                          sortBy === 'spec' ? 'border-steel-300 bg-steel-50/50 text-steel-700 dark:bg-slate-900 dark:border-slate-700 font-semibold' : 'border-slate-200 dark:border-slate-800 text-slate-500'
+                        }`}
+                      >
+                        <span>Code Standard</span>
+                        <ArrowUpDown className="w-3.5 h-3.5" />
+                      </button>
+                      <button 
+                        onClick={() => toggleSort('count')}
+                        className={`px-2.5 py-1.5 rounded-md border flex items-center space-x-1 transition-all hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer ${
+                          sortBy === 'count' ? 'border-steel-300 bg-steel-50/50 text-steel-700 dark:bg-slate-900 dark:border-slate-700 font-semibold' : 'border-slate-200 dark:border-slate-800 text-slate-500'
+                        }`}
+                      >
+                        <span>Occurrences</span>
+                        <ArrowUpDown className="w-3.5 h-3.5" />
+                      </button>
+                      <button 
+                        onClick={() => toggleSort('material')}
+                        className={`px-2.5 py-1.5 rounded-md border flex items-center space-x-1 transition-all hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer ${
+                          sortBy === 'material' ? 'border-steel-300 bg-steel-50/50 text-steel-700 dark:bg-slate-900 dark:border-slate-700 font-semibold' : 'border-slate-200 dark:border-slate-800 text-slate-500'
+                        }`}
+                      >
+                        <span>Material</span>
+                        <ArrowUpDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Results list mapping */}
+                <div className="space-y-2.5 min-h-36 font-sans">
+                  {!isSearchOrFilterActive ? (
+                    <div className="border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center space-y-4 bg-white dark:bg-slate-900/40">
+                      <Compass className="w-12 h-12 text-steel-500/60 mx-auto animate-pulse" />
+                      <h3 className="font-display font-extrabold text-slate-800 dark:text-slate-100 text-base">
+                        Search or Filter to Explore Catalog
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-sans max-w-md mx-auto leading-relaxed">
+                        The pipe and tube database is currently loaded and offline-ready. Enter a standard/grade code above (e.g., <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-steel-600 dark:text-steel-400">A106</span>, <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-steel-600 dark:text-steel-400">TP304</span>, or <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-steel-600 dark:text-steel-400">DIN 1629</span>), or select specific materials and shapes in the sidebar to display matched pipeline specifications.
+                      </p>
+                      <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                        <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400">Try quick searches:</span>
+                        <button 
+                          onClick={() => handleFilterChange({ ...filters, searchQuery: 'A106 b' })}
+                          className="text-[11px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-600 dark:text-slate-350 px-2.5 py-1 rounded-md transition-colors font-mono cursor-pointer border border-slate-200/50 dark:border-slate-750"
+                        >
+                          A106 b
+                        </button>
+                        <button 
+                          onClick={() => handleFilterChange({ ...filters, searchQuery: 'SA213 T91' })}
+                          className="text-[11px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-600 dark:text-slate-350 px-2.5 py-1 rounded-md transition-colors font-mono cursor-pointer border border-slate-200/50 dark:border-slate-750"
+                        >
+                          SA213 T91
+                        </button>
+                        <button 
+                          onClick={() => handleFilterChange({ ...filters, searchQuery: 'DIN 1629' })}
+                          className="text-[11px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-600 dark:text-slate-350 px-2.5 py-1 rounded-md transition-colors font-mono cursor-pointer border border-slate-200/50 dark:border-slate-750"
+                        >
+                          DIN 1629
+                        </button>
+                        <button 
+                          onClick={() => handleFilterChange({ ...filters, material: 'Stainless Steel' })}
+                          className="text-[11px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-600 dark:text-slate-350 px-2.5 py-1 rounded-md transition-colors font-mono cursor-pointer border border-slate-200/50 dark:border-slate-750"
+                        >
+                          Stainless Steel
+                        </button>
+                      </div>
+                    </div>
+                  ) : filteredItems.length > 0 ? (
+                    filteredItems.map((item) => (
+                      <ItemRow
+                        key={item.id}
+                        item={item}
+                        searchQuery={filters.searchQuery}
+                        onSelect={setSelectedItem}
+                        isConsolidated={filters.consolidate}
+                      />
+                    ))
+                  ) : (
+                    <div className="border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center space-y-3 bg-white dark:bg-slate-900/40">
+                      <HelpCircle className="w-10 h-10 text-slate-300 dark:text-slate-700 mx-auto" />
+                      <h3 className="font-display font-bold text-slate-800 dark:text-slate-200 text-sm">
+                        No specifications match your search query
+                      </h3>
+                      <p className="text-xs text-slate-500 font-sans max-w-sm mx-auto leading-relaxed">
+                        Try typing portions of code like <span className="font-mono">"A106"</span>, <span className="font-mono">"316L"</span>, or clicking the pre-built fuzzy search shortcuts above to check the results.
+                      </p>
+                      <button
+                        onClick={resetAll}
+                        className="text-xs text-steel-500 dark:text-steel-400 font-semibold underline hover:text-steel-700 cursor-pointer"
+                      >
+                        Clear filters and search query
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </section>
+            </div>
+
+            {/* Technical Guidance & FAQs Section */}
+            <section className="pt-8 border-t border-slate-200 dark:border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-6 font-sans">
+              
+              <div className="space-y-2 p-5 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-2xl">
+                <div className="flex items-center space-x-2 text-steel-600 dark:text-steel-400">
+                  <Award className="w-4 h-4 shrink-0" />
+                  <h4 className="text-xs font-semibold uppercase tracking-wider">ASTM vs. ASME Specifications</h4>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  <strong>ASTM</strong> codes represent material test standards, while <strong>ASME</strong> codes represent pressure piping design requirements. Commonly, an ASME code (e.g. <em>SA213</em>) is physically identical to the corresponding ASTM code (e.g. <em>A213</em>) but carries formal certification for boiler use.
+                </p>
+              </div>
+
+              <div className="space-y-2 p-5 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-2xl">
+                <div className="flex items-center space-x-2 text-rose-500">
+                  <Flame className="w-4 h-4 shrink-0" />
+                  <h4 className="text-xs font-semibold uppercase tracking-wider">What is IBR Certification?</h4>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  <strong>IBR</strong> stands for Indian Boiler Regulations. Tubes and pipes bearing the <em>IBR</em> grade suffix have undergone hydrostatic, tensile, and chemical tests audited by certified inspectors to guarantee resistance to steam pressures exceeding 1.0 MPa (10 kgf/cm²).
+                </p>
+              </div>
+
+              <div className="space-y-2 p-5 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-2xl">
+                <div className="flex items-center space-x-2 text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <h4 className="text-xs font-semibold uppercase tracking-wider">How to read Alloy Suffixes</h4>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Suffixes like <strong>L</strong> (e.g., <em>316L</em>) denote low carbon content to protect weld margins from corrosion. Suffixes like <strong>H</strong> (e.g., <em>304H</em>) denote high carbon content for superior tensile performance at extreme furnace heats.
+                </p>
+              </div>
+
+            </section>
+          </>
+        )}
       </main>
 
       {/* Footer copyright section */}
@@ -451,6 +665,10 @@ export default function App() {
             >
               Terms of Service
             </button>
+            <span>•</span>
+            <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded text-[10px] font-semibold text-slate-500 dark:text-slate-400 tracking-wider">
+              v1.1.0
+            </span>
           </div>
         </div>
       </footer>
@@ -465,7 +683,7 @@ export default function App() {
           />
 
           {/* Modal Container */}
-          <div className="relative bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 dark:border-slate-800 transform transition-all z-10 animate-in fade-in zoom-in-95 duration-200">
+          <div className="relative bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 dark:border-slate-800 transform transition-all z-10 animate-in fade-in zoom-in-95 duration-200 font-sans">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-150 dark:border-slate-800 pb-3 mb-4">
               <h3 className="text-sm font-mono font-bold uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center space-x-2">
@@ -481,7 +699,7 @@ export default function App() {
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 aria-label="Close dialog"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4.5 h-4.5" />
               </button>
             </div>
 
@@ -572,6 +790,49 @@ export default function App() {
         item={selectedItem}
         onClose={() => setSelectedItem(null)}
       />
+
+      {/* Admin Login Dialog */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onLoginSuccess={handleLoginSuccess}
+      />
+
+      {/* Welcome Toast Notification */}
+      <AnimatePresence>
+        {showWelcomeToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95, x: 20 }}
+            animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
+            exit={{ opacity: 0, y: -10, scale: 0.95, x: 10 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="fixed top-4 right-4 z-50 flex items-center space-x-3.5 bg-white dark:bg-slate-900 border border-emerald-500/30 dark:border-emerald-500/20 rounded-2xl px-4 py-3.5 shadow-xl max-w-sm font-sans"
+            id="welcome-toast-popup"
+          >
+            {/* Left accent indicator */}
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            
+            <div className="flex-1">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-snug">
+                Welcome, Dharmit 👋
+              </h4>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-normal">
+                You have successfully signed in as Administrator.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowWelcomeToast(false)}
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              aria-label="Dismiss notification"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

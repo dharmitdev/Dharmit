@@ -27,3 +27,13 @@ export interface FilterState {
   ibrOnly: boolean;
   consolidate: boolean;
 }
+
+export interface ActivityLog {
+  id: string;
+  action: 'add' | 'edit' | 'delete' | 'reset';
+  itemName: string;
+  specification: string;
+  grade: string;
+  timestamp: string;
+}
+
