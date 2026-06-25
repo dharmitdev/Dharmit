@@ -367,14 +367,32 @@ export const searchPipeItems = (
       
       // Every single token must match somewhere in the text
       return tokens.every(token => {
+        // If token is a single character (e.g. "b" or "c"), perform a strict grade/word boundary check
+        // to prevent false positives inside other words or adjacent characters
+        if (token.length === 1) {
+          const isLetter = /^[a-z]$/i.test(token);
+          const isDigit = /^\d$/.test(token);
+          if (isLetter) {
+            const escaped = token.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const regex = new RegExp(`(?<![a-z])${escaped}(?![a-z0-9])`, 'i');
+            return regex.test(matchText);
+          }
+          if (isDigit) {
+            const escaped = token;
+            const regex = new RegExp(`(?<!\\d)${escaped}(?!\\d)`, 'i');
+            return regex.test(matchText);
+          }
+          const escaped = token.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+          const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+          return regex.test(matchText);
+        }
+
         // Special replacement for ASTM/ASME grade/specification lookup shortcuts
         // E.g., if token is "a106" and item spec is "ASTM A106" -> true
         // if token is "sa213" and item spec is "ASME SA213" -> true
-        // If token is "b" and item grade has "Gr.B" -> true
         const isA106 = token === 'a106' && matchText.includes('a106');
-        const isB = token === 'b' && (matchText.includes('gr.b') || matchText.includes('tp316b') || matchText.includes('b,') || matchText.endsWith(' b') || matchText.includes(' b '));
         
-        if (isA106 || isB) return true;
+        if (isA106) return true;
         
         // Match original or normalized versions to support dashes, dots, and space differences (e.g. st-37, st 37, st37)
         const normToken = token.replace(/[-_.\s]/g, '');

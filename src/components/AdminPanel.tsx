@@ -349,6 +349,16 @@ export default function AdminPanel({
           <p className="text-xs text-slate-500 dark:text-slate-400 font-sans max-w-xl">
             Welcome back to the inventory, Dharmit. Below you can add standard specifications, edit grades, adjust inventory counts, perform secure data backups, and view modification logs.
           </p>
+          <div className="pt-1.5 flex flex-wrap gap-2">
+            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 px-2.5 py-1 rounded-md border border-slate-100 dark:border-slate-800/60 shadow-3xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              Auto-Logout Active: 30m session limit
+            </span>
+            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 px-2.5 py-1 rounded-md border border-slate-100 dark:border-slate-800/60 shadow-3xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+              Inactivity Guard: 5m AFK logout
+            </span>
+          </div>
         </div>
         
         {/* Navigation & Action buttons */}

@@ -140,13 +140,19 @@ export default function App() {
     setActivityLogs(prev => [newLog, ...prev].slice(0, 50)); // cap at 50 logs for cleanliness
   };
 
+  // State for tracking why they were logged out
+  const [logoutReason, setLogoutReason] = useState<'session' | 'afk' | null>(null);
+
   // Admin authentication handlers
   const handleLoginSuccess = () => {
     setIsAdminLoggedIn(true);
     localStorage.setItem('materials_desk_admin_logged_in', 'true');
+    localStorage.setItem('materials_desk_admin_login_time', Date.now().toString());
+    localStorage.setItem('materials_desk_admin_last_active', Date.now().toString());
     setAdminViewActive(true);
     handleAddActivityLog('reset', { itemName: 'Admin Logged In Successfully' });
     setShowWelcomeToast(true);
+    setLogoutReason(null);
   };
 
   useEffect(() => {
@@ -161,8 +167,79 @@ export default function App() {
   const handleLogout = () => {
     setIsAdminLoggedIn(false);
     localStorage.setItem('materials_desk_admin_logged_in', 'false');
+    localStorage.removeItem('materials_desk_admin_login_time');
+    localStorage.removeItem('materials_desk_admin_last_active');
     setAdminViewActive(false);
   };
+
+  // Automatically logout after 30 minutes of session or 5 minutes of inactivity (AFK)
+  useEffect(() => {
+    if (!isAdminLoggedIn) return;
+
+    // Set fallback timestamps if not already present
+    if (!localStorage.getItem('materials_desk_admin_login_time')) {
+      localStorage.setItem('materials_desk_admin_login_time', Date.now().toString());
+    }
+    if (!localStorage.getItem('materials_desk_admin_last_active')) {
+      localStorage.setItem('materials_desk_admin_last_active', Date.now().toString());
+    }
+
+    // Capture activity to reset AFK timer
+    const handleActivity = () => {
+      localStorage.setItem('materials_desk_admin_last_active', Date.now().toString());
+    };
+
+    const activityEvents = ['mousemove', 'keydown', 'mousedown', 'scroll', 'click', 'touchstart'];
+    activityEvents.forEach(event => {
+      window.addEventListener(event, handleActivity);
+    });
+
+    const checkTimers = () => {
+      const now = Date.now();
+      const loginTime = Number(localStorage.getItem('materials_desk_admin_login_time') || now);
+      const lastActive = Number(localStorage.getItem('materials_desk_admin_last_active') || now);
+
+      const sessionLimitMs = 30 * 60 * 1000; // 30 minutes
+      const afkLimitMs = 5 * 60 * 1000; // 5 minutes (afk timeout)
+
+      if (now - loginTime > sessionLimitMs) {
+        handleLogout();
+        setLogoutReason('session');
+        return true;
+      } else if (now - lastActive > afkLimitMs) {
+        handleLogout();
+        setLogoutReason('afk');
+        return true;
+      }
+      return false;
+    };
+
+    // Run immediately
+    const wasLoggedOut = checkTimers();
+    if (wasLoggedOut) return;
+
+    // Check periodically
+    const interval = setInterval(() => {
+      checkTimers();
+    }, 2000);
+
+    return () => {
+      activityEvents.forEach(event => {
+        window.removeEventListener(event, handleActivity);
+      });
+      clearInterval(interval);
+    };
+  }, [isAdminLoggedIn]);
+
+  // Automatically clear logout toast after 8 seconds
+  useEffect(() => {
+    if (logoutReason) {
+      const timer = setTimeout(() => {
+        setLogoutReason(null);
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [logoutReason]);
 
   // Track if user has interacted with specific filter categories
   const [hasInteractedMaterial, setHasInteractedMaterial] = useState(false);
@@ -835,6 +912,44 @@ export default function App() {
 
             <button
               onClick={() => setShowWelcomeToast(false)}
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              aria-label="Dismiss notification"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Auto-Logout Notification Toast */}
+      <AnimatePresence>
+        {logoutReason && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95, x: 20 }}
+            animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
+            exit={{ opacity: 0, y: -10, scale: 0.95, x: 10 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="fixed top-4 right-4 z-50 flex items-center space-x-3.5 bg-white dark:bg-slate-900 border border-amber-550/30 dark:border-amber-550/20 rounded-2xl px-4 py-3.5 shadow-xl max-w-sm font-sans"
+            id="logout-toast-popup"
+          >
+            {/* Left accent indicator */}
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center text-amber-600 dark:text-amber-400">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            
+            <div className="flex-1">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-snug">
+                Session Terminated 🔒
+              </h4>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-normal">
+                {logoutReason === 'session' 
+                  ? 'Admin logged out automatically after 30 minutes session limit.'
+                  : 'Logged out automatically due to inactivity (AFK).'}
+              </p>
+            </div>
+
+            <button
+              onClick={() => setLogoutReason(null)}
               className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               aria-label="Dismiss notification"
             >
