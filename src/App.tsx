@@ -794,7 +794,7 @@ export default function App() {
             </button>
             <span>•</span>
             <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded text-[10px] font-semibold text-slate-500 dark:text-slate-400 tracking-wider">
-              v1.0.2
+              v1.0.3
             </span>
           </div>
         </div>
