@@ -220,37 +220,6 @@ export interface AnalyticsData {
   popularSearches: Array<{ query: string; count: number }>;
 }
 
-const MOCK_LOCATIONS = [
-  'Dubai, United Arab Emirates',
-  'Doha, Qatar',
-  'Singapore, Singapore',
-  'Houston, United States',
-  'London, United Kingdom',
-  'New Delhi, India',
-  'Abu Dhabi, United Arab Emirates',
-  'Kuala Lumpur, Malaysia',
-  'Riyadh, Saudi Arabia'
-];
-
-const MOCK_ACTIONS = [
-  { action: 'Searched "ASTM A106 Gr B"', type: 'search' },
-  { action: 'Searched "ASME SA213 T22"', type: 'search' },
-  { action: 'Searched "ASTM A333 Grade 6"', type: 'search' },
-  { action: 'Searched "SA210 Boiler Tubes"', type: 'search' },
-  { action: 'Searched "TP316L Stainless"', type: 'search' },
-  { action: 'Viewed "ASTM A106 - Grade B" specifications', type: 'view' },
-  { action: 'Viewed "ASME SA213 - TP347H" specifications', type: 'view' },
-  { action: 'Viewed "ASTM A333 - Grade 6" specifications', type: 'view' },
-  { action: 'Filtered material by "Stainless Steel"', type: 'filter' },
-  { action: 'Filtered product type by "Seamless Tubes"', type: 'filter' },
-  { action: 'Enabled IBR Approved filter option', type: 'filter' },
-  { action: 'Sent WhatsApp inquiry for A106 Pipes', type: 'inquiry' },
-  { action: 'Initiated quotation draft for SA213 Tubes', type: 'inquiry' },
-  { action: 'Downloaded specification PDF sheet', type: 'download' }
-];
-
-const REFERRERS = ['Google', 'Direct', 'LinkedIn', 'IndustryPortal', 'Bing'];
-
 function formatRelativeTime(date: Date): string {
   const diffMs = Date.now() - date.getTime();
   if (diffMs < 5000) return 'Just now';
@@ -258,102 +227,61 @@ function formatRelativeTime(date: Date): string {
   const mins = Math.floor(diffMs / 60000);
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
-  return `${hrs}h ago`;
+  if (hrs < 24) return `${hrs}h ago`;
+  return date.toLocaleDateString();
 }
 
 export function subscribeToRealtimeAnalytics(onUpdate: (data: AnalyticsData) => void) {
   let sessionsList: any[] = [];
-  let totalPageviewsCount = 12;
+  let totalPageviewsCount = 0;
   let recentEvents: any[] = [];
   let popularList: any[] = [];
 
-  // Generate 10 persistent mock sessions
-  const mockSessions = MOCK_LOCATIONS.map((loc, i) => {
-    const isMobile = i % 3 === 0;
-    const offsetMs = (i + 1) * 20 * 1000; // staggered last active
-    return {
-      id: `mock-sess-${i}`,
-      visitorId: `mock-vis-${i}`,
-      location: loc,
-      deviceType: isMobile ? 'Mobile' : 'Desktop',
-      userAgent: isMobile ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-      referrer: REFERRERS[i % REFERRERS.length],
-      firstSeen: new Date(Date.now() - 3600 * 1000 * 2).toISOString(),
-      lastActive: new Date(Date.now() - offsetMs).toISOString()
-    };
-  });
-
-  // Pre-populate with realistic historical events
-  const simulatedEvents: any[] = [];
-  for (let i = 0; i < 7; i++) {
-    const randomLoc = MOCK_LOCATIONS[Math.floor(Math.random() * MOCK_LOCATIONS.length)];
-    const randomAct = MOCK_ACTIONS[Math.floor(Math.random() * MOCK_ACTIONS.length)];
-    const minutesAgo = (i + 1) * 3 + Math.floor(Math.random() * 3);
-    simulatedEvents.push({
-      id: `mock-evt-${i}-${Math.random()}`,
-      location: randomLoc,
-      action: randomAct.action,
-      type: randomAct.type,
-      timestamp: new Date(Date.now() - minutesAgo * 60 * 1000)
-    });
-  }
-
-  // Track dynamic simulated page view count to simulate growth
-  let simulatedPageviewsOffset = 340;
-
   const triggerUpdate = () => {
-    const activeCutoff = new Date(Date.now() - 90 * 1000).toISOString();
+    const now = Date.now();
+    // Calculate active users based strictly on lastActive time within last 90 seconds (90,000 ms)
+    const activeCutoff = new Date(now - 90 * 1000).toISOString();
 
-    // 1. Merge and compute active sessions list
-    const combinedSessions = [
-      ...sessionsList,
-      ...mockSessions
-    ];
+    const activeSessions = sessionsList.filter(s => s.lastActive && s.lastActive > activeCutoff);
+    const activeCount = activeSessions.length;
 
-    const activeSessions = combinedSessions.filter(s => s.lastActive && s.lastActive > activeCutoff);
-    const activeCount = Math.max(1, activeSessions.length);
+    // Compute unique visitors from real visitor IDs
+    const uniqueIds = new Set(sessionsList.map(s => s.visitorId));
+    const uniqueCount = uniqueIds.size;
 
-    // 2. Compute unique visitors
-    const uniqueIds = new Set(combinedSessions.map(s => s.visitorId));
-    const uniqueCount = Math.max(1, uniqueIds.size);
-
-    // 3. Compute device split
+    // Compute device split from real session details
     let desktopCount = 0;
     let mobileCount = 0;
-    combinedSessions.forEach(s => {
+    sessionsList.forEach(s => {
       if (s.deviceType === 'Mobile') {
         mobileCount++;
       } else {
         desktopCount++;
       }
     });
-    const totalDevices = Math.max(1, desktopCount + mobileCount);
-    const desktopPct = Math.round((desktopCount / totalDevices) * 100);
-    const mobilePct = 100 - desktopPct;
+    const totalDevices = desktopCount + mobileCount;
+    const desktopPct = totalDevices > 0 ? Math.round((desktopCount / totalDevices) * 100) : 100;
+    const mobilePct = totalDevices > 0 ? (100 - desktopPct) : 0;
 
-    // 4. Compute countries list dynamically
+    // Compute country statistics dynamically
     const countryCounts: Record<string, number> = {};
-    combinedSessions.forEach(s => {
+    sessionsList.forEach(s => {
       const loc = s.location || 'India';
       const parts = loc.split(', ');
       const country = parts[parts.length - 1] || 'India';
       countryCounts[country] = (countryCounts[country] || 0) + 1;
     });
+    const totalSessions = sessionsList.length || 1;
     const countryArray = Object.entries(countryCounts)
       .map(([name, count]) => ({
         name,
         count,
-        percentage: Math.round((count / Math.max(1, combinedSessions.length)) * 100)
+        percentage: Math.round((count / totalSessions) * 100)
       }))
       .sort((a, b) => b.count - a.count);
 
-    // 5. Merge and format recent actions feed (with dynamic relative times)
-    const combinedEvents = [
-      ...recentEvents,
-      ...simulatedEvents
-    ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-
-    const formattedEvents = combinedEvents.map(evt => {
+    // Format recent actions feed with actual relative timestamps
+    const formattedEvents = recentEvents.map(evt => {
       const ts = evt.timestamp instanceof Date ? evt.timestamp : new Date(evt.timestamp);
       return {
         id: evt.id,
@@ -363,82 +291,18 @@ export function subscribeToRealtimeAnalytics(onUpdate: (data: AnalyticsData) => 
         type: evt.type,
         timestamp: ts
       };
-    }).slice(0, 15);
-
-    // 6. Merge popular searches
-    const searchCounts: Record<string, number> = {
-      'ASTM A106 Grade B': 24,
-      'ASME SA213 T22': 18,
-      'ASTM A333 Low Temp': 12,
-      'SA210 Boiler Tubes': 8,
-    };
-    popularList.forEach(item => {
-      searchCounts[item.query] = (searchCounts[item.query] || 0) + item.count + 5;
     });
-    const finalPopularSearches = Object.entries(searchCounts)
-      .map(([queryStr, count]) => ({ query: queryStr, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
 
     onUpdate({
       activeUsers: activeCount,
-      totalPageviews: totalPageviewsCount + simulatedPageviewsOffset,
+      totalPageviews: totalPageviewsCount,
       uniqueVisitors: uniqueCount,
       recentEvents: formattedEvents,
       countries: countryArray.slice(0, 5),
       deviceSplit: { desktop: desktopPct, mobile: mobilePct },
-      popularSearches: finalPopularSearches
+      popularSearches: popularList
     });
   };
-
-  // --- TRAFFIC SIMULATOR CORE TIMERS ---
-  // A. Every 4 seconds, stagger/fluctuate mock session activity
-  const fluctuationInterval = setInterval(() => {
-    // Randomly select 4-8 mock sessions to remain active right now
-    const targetActiveCount = 4 + Math.floor(Math.random() * 5); // 4 to 8 active mock sessions
-    const shuffledMockIds = [...Array(mockSessions.length).keys()].sort(() => Math.random() - 0.5);
-    const activeIndices = shuffledMockIds.slice(0, targetActiveCount);
-
-    mockSessions.forEach((sess, idx) => {
-      if (activeIndices.includes(idx)) {
-        sess.lastActive = new Date().toISOString();
-      } else {
-        // Age them out by 2 minutes
-        sess.lastActive = new Date(Date.now() - 120 * 1000).toISOString();
-      }
-    });
-
-    triggerUpdate();
-  }, 4000);
-
-  // B. Every 9 seconds, have a random chance to trigger a live visitor interaction
-  const actionInterval = setInterval(() => {
-    if (Math.random() > 0.45) { // 55% chance
-      const activeMocks = mockSessions.filter(s => s.lastActive && s.lastActive > new Date(Date.now() - 90 * 1000).toISOString());
-      if (activeMocks.length > 0) {
-        const randomSess = activeMocks[Math.floor(Math.random() * activeMocks.length)];
-        const randomAct = MOCK_ACTIONS[Math.floor(Math.random() * MOCK_ACTIONS.length)];
-
-        simulatedEvents.unshift({
-          id: `mock-evt-${Date.now()}-${Math.random()}`,
-          location: randomSess.location,
-          action: randomAct.action,
-          type: randomAct.type,
-          timestamp: new Date()
-        });
-
-        // Cap simulated events to avoid excessive arrays
-        if (simulatedEvents.length > 30) {
-          simulatedEvents.pop();
-        }
-
-        // Increment dynamic simulated page views and offset
-        simulatedPageviewsOffset += 1 + Math.floor(Math.random() * 2);
-
-        triggerUpdate();
-      }
-    }
-  }, 9000);
 
   // 1. Subscribe to sessions
   const unsubscribeSessions = onSnapshot(collection(db, 'sessions'), (snapshot) => {
@@ -453,7 +317,7 @@ export function subscribeToRealtimeAnalytics(onUpdate: (data: AnalyticsData) => 
 
   // 2. Subscribe to pageviews count
   const unsubscribePageviews = onSnapshot(collection(db, 'pageviews'), (snapshot) => {
-    totalPageviewsCount = Math.max(snapshot.size, 12);
+    totalPageviewsCount = snapshot.size;
     triggerUpdate();
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, 'pageviews');
@@ -496,15 +360,19 @@ export function subscribeToRealtimeAnalytics(onUpdate: (data: AnalyticsData) => 
     popularList = Object.entries(searchCounts)
       .map(([queryStr, count]) => ({ query: queryStr, count }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 4);
+      .slice(0, 5);
     triggerUpdate();
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, 'actions');
   });
 
+  // Periodically refresh the trigger to recalculate active cutoffs and relative timestamps
+  const timeRefreshInterval = setInterval(() => {
+    triggerUpdate();
+  }, 5000);
+
   return () => {
-    clearInterval(fluctuationInterval);
-    clearInterval(actionInterval);
+    clearInterval(timeRefreshInterval);
     unsubscribeSessions();
     unsubscribePageviews();
     unsubscribeActions();
