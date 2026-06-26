@@ -36,5 +36,10 @@ service cloud.firestore {
       allow create: if isValidId(actionId)
         && (incoming().keys().hasAny(['sessionId', 'visitorId', 'timestamp', 'location', 'action', 'type']));
     }
+
+    // 6. NPS Dimensions Rules
+    match /nps_dimensions/{dimensionId} {
+      allow read, write: if true;
+    }
   }
 }

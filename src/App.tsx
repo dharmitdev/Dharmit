@@ -9,6 +9,8 @@ import {
   CheckCircle2, 
   Award,
   ChevronRight,
+  ChevronDown,
+  Ruler,
   Printer,
   Compass,
   ArrowUpDown,
@@ -28,6 +30,7 @@ import DetailsModal from './components/DetailsModal';
 import Logo from './components/Logo';
 import LoginModal from './components/LoginModal';
 import AdminPanel from './components/AdminPanel';
+import PipeDimensionCalculator from './components/PipeDimensionCalculator';
 import { initializeVisitorTracking, logVisitorAction } from './lib/firebase';
 
 export default function App() {
@@ -74,6 +77,7 @@ export default function App() {
   const [adminViewActive, setAdminViewActive] = useState<boolean>(false);
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [showWelcomeToast, setShowWelcomeToast] = useState<boolean>(false);
+  const [showCalculator, setShowCalculator] = useState<boolean>(false);
   
   // Activity logging state
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(() => {
@@ -587,6 +591,50 @@ export default function App() {
                   <span className="text-[10px] text-slate-400 mt-0.5 block font-sans">Unique alloy variations</span>
                 </div>
               </div>
+            </section>
+
+            {/* ANSI Pipe Dimensions Converter Section */}
+            <section className="space-y-3 animate-in fade-in slide-in-from-bottom-3 duration-500 delay-150">
+              <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-850 px-5 py-3.5 rounded-2xl shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-amber-500/10 text-amber-600 dark:text-amber-500 rounded-xl shrink-0">
+                    <Ruler className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-display font-extrabold text-slate-900 dark:text-white tracking-tight">
+                      Interactive Pipe Dimension Converter
+                    </h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-sans mt-0.5">
+                      Check standard ASME/ANSI B36.10 outside diameters, wall thicknesses, and weights
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowCalculator(!showCalculator);
+                    logVisitorAction(showCalculator ? 'Collapsed NPS Calculator' : 'Expanded NPS Calculator', 'filter');
+                  }}
+                  className="flex items-center justify-center space-x-1.5 px-4 py-2 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer select-none active:scale-95 shrink-0"
+                  id="toggle-nps-calculator-btn"
+                >
+                  <span>{showCalculator ? 'Hide Converter' : 'Open Converter'}</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${showCalculator ? 'rotate-180' : ''}`} />
+                </button>
+              </div>
+
+              <AnimatePresence initial={false}>
+                {showCalculator && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <PipeDimensionCalculator />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </section>
 
             {/* Prominent Search Bar on top of catalog/filters */}

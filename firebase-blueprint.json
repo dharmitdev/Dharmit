@@ -43,6 +43,22 @@
         "timestamp": { "type": "string" }
       },
       "required": ["sessionId", "visitorId", "location", "action", "type", "timestamp"]
+    },
+    "NpsDimension": {
+      "title": "NpsDimension",
+      "description": "Nominal Pipe Size dimensions and schedules reference data",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nps": { "type": "string" },
+        "dn": { "type": "number" },
+        "od": { "type": "number" },
+        "schedules": {
+          "type": "object",
+          "description": "Schedule names and their wall thicknesses in mm"
+        }
+      },
+      "required": ["id", "nps", "dn", "od", "schedules"]
     }
   },
   "firestore": {
@@ -57,6 +73,10 @@
     "actions/{actionId}": {
       "schema": "Action",
       "description": "Visitor custom interactions and search actions"
+    },
+    "nps_dimensions/{dimensionId}": {
+      "schema": "NpsDimension",
+      "description": "ASME/ANSI B36.10 Pipe Dimensions chart"
     }
   }
 }

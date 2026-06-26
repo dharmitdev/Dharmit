@@ -31,10 +31,20 @@ import {
   ArrowDownRight,
   Eye,
   MapPin,
-  TrendingUp
+  TrendingUp,
+  Ruler
 } from 'lucide-react';
 import { ConsolidateItem, ActivityLog } from '../types';
-import { subscribeToRealtimeAnalytics, AnalyticsData } from '../lib/firebase';
+import { 
+  subscribeToRealtimeAnalytics, 
+  AnalyticsData,
+  subscribeToNpsDimensions,
+  addNpsDimension,
+  updateNpsDimension,
+  deleteNpsDimension,
+  resetNpsDimensionsToDefault
+} from '../lib/firebase';
+import { PipeDimensionRecord } from '../lib/pipeDimensions';
 
 interface AdminPanelProps {
   dataset: ConsolidateItem[];
@@ -118,7 +128,31 @@ export default function AdminPanel({
   const [successMessage, setSuccessMessage] = useState('');
 
   // Active Admin View Tab
-  const [activeAdminTab, setActiveAdminTab] = useState<'inventory' | 'analytics'>('inventory');
+  const [activeAdminTab, setActiveAdminTab] = useState<'inventory' | 'nps' | 'analytics'>('inventory');
+
+  // NPS Dimensions List and Editing States
+  const [npsList, setNpsList] = useState<PipeDimensionRecord[]>([]);
+  const [npsSearch, setNpsSearch] = useState('');
+  
+  // Modal states for NPS Dimension editing
+  const [isNpsModalOpen, setIsNpsModalOpen] = useState(false);
+  const [editingNps, setEditingNps] = useState<PipeDimensionRecord | null>(null);
+  const [npsFormNps, setNpsFormNps] = useState('');
+  const [npsFormDn, setNpsFormDn] = useState<number>(0);
+  const [npsFormOd, setNpsFormOd] = useState<number>(0);
+  const [npsFormSchedules, setNpsFormSchedules] = useState<{ [key: string]: string }>({});
+  
+  // Helper states to add/remove schedules in the editing modal
+  const [newSchKey, setNewSchKey] = useState('');
+  const [newSchVal, setNewSchVal] = useState('');
+
+  // Subscribe to NPS Dimensions in a useEffect
+  React.useEffect(() => {
+    const unsubscribe = subscribeToNpsDimensions((data) => {
+      setNpsList(data);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Real live traffic / visitor metrics from Firebase
   const [analytics, setAnalytics] = useState<AnalyticsData>({
@@ -157,6 +191,92 @@ export default function AdminPanel({
       setFormMaterial('Mild Steel (MS)');
     } else if (shapeLower.includes('carbon') || shapeLower.includes('riffle') || shapeLower.includes('finned')) {
       setFormMaterial('Carbon Steel');
+    }
+  };
+
+  // NPS Reference Handlers
+  const handleResetNps = async () => {
+    if (confirm("Are you sure you want to reset the entire ASME/ANSI B36.10 pipe dimensions chart back to standard values? This will overwrite any custom edits.")) {
+      await resetNpsDimensionsToDefault();
+      showStatus("NPS Dimensions Chart has been restored to factory standard values.");
+    }
+  };
+
+  const handleOpenNpsAdd = () => {
+    setEditingNps(null);
+    setNpsFormNps('');
+    setNpsFormDn(0);
+    setNpsFormOd(0);
+    setNpsFormSchedules({});
+    setNewSchKey('');
+    setNewSchVal('');
+    setIsNpsModalOpen(true);
+  };
+
+  const handleOpenNpsEdit = (record: PipeDimensionRecord) => {
+    setEditingNps(record);
+    setNpsFormNps(record.nps);
+    setNpsFormDn(record.dn);
+    setNpsFormOd(record.od);
+    
+    // Map schedules (Record<string, number>) to Record<string, string> for form editing
+    const schMap: { [key: string]: string } = {};
+    Object.entries(record.schedules).forEach(([k, v]) => {
+      schMap[k] = String(v);
+    });
+    setNpsFormSchedules(schMap);
+    
+    setNewSchKey('');
+    setNewSchVal('');
+    setIsNpsModalOpen(true);
+  };
+
+  const handleNpsFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!npsFormNps.trim()) {
+      alert("Please enter a nominal size.");
+      return;
+    }
+    if (npsFormDn <= 0 || npsFormOd <= 0) {
+      alert("Please enter positive numeric values for DN and OD.");
+      return;
+    }
+
+    // Convert string map to Record<string, number>
+    const finalSchedules: Record<string, number> = {};
+    Object.entries(npsFormSchedules).forEach(([k, v]) => {
+      const val = parseFloat(v as string);
+      if (!isNaN(val) && val >= 0) {
+        finalSchedules[k] = val;
+      }
+    });
+
+    const finalRecord: PipeDimensionRecord = {
+      nps: npsFormNps.trim(),
+      dn: Number(npsFormDn),
+      od: Number(npsFormOd),
+      schedules: finalSchedules
+    };
+
+    if (editingNps) {
+      await addNpsDimension(finalRecord);
+      onAddActivityLog('edit', { itemName: `NPS Size ${finalRecord.nps} dimension entry` });
+      showStatus(`Successfully updated NPS ${finalRecord.nps} dimensions.`);
+    } else {
+      await addNpsDimension(finalRecord);
+      onAddActivityLog('add', { itemName: `NPS Size ${finalRecord.nps} dimension entry` });
+      showStatus(`Successfully added new NPS size ${finalRecord.nps}.`);
+    }
+
+    setIsNpsModalOpen(false);
+  };
+
+  const handleNpsDelete = async (npsStr: string) => {
+    if (confirm(`Are you sure you want to delete NPS ${npsStr} from the dimensions reference database?`)) {
+      const npsId = npsStr.replace('/', '_').replace(' ', '_');
+      await deleteNpsDimension(npsId);
+      onAddActivityLog('delete', { itemName: `NPS Size ${npsStr} dimension entry` });
+      showStatus(`Successfully deleted NPS size ${npsStr}.`);
     }
   };
 
@@ -470,6 +590,18 @@ export default function AdminPanel({
           <span>Inventory Database ({dataset.length})</span>
         </button>
         <button
+          onClick={() => setActiveAdminTab('nps')}
+          className={`px-5 py-3 text-xs font-mono font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center space-x-2 ${
+            activeAdminTab === 'nps'
+              ? 'border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100'
+              : 'border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+          }`}
+          id="admin-tab-nps"
+        >
+          <Ruler className="w-4 h-4" />
+          <span>NPS Dimensions Chart ({npsList.length})</span>
+        </button>
+        <button
           onClick={() => setActiveAdminTab('analytics')}
           className={`px-5 py-3 text-xs font-mono font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center space-x-2 ${
             activeAdminTab === 'analytics'
@@ -749,6 +881,145 @@ export default function AdminPanel({
 
         </div>
       </div>
+    ) : activeAdminTab === 'nps' ? (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        className="space-y-6"
+        id="admin-nps-view"
+      >
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-150 dark:border-slate-850 pb-4">
+            <div>
+              <h3 className="text-md font-display font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
+                ASME / ANSI B36.10 Pipe Dimensions Reference Manager
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Configure the default Nominal Pipe Size reference database. Changes are updated instantly in the customer's Interactive Pipe Dimension Converter.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleOpenNpsAdd}
+                className="px-3.5 py-1.5 bg-slate-950 hover:bg-slate-900 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-950 text-xs font-bold rounded-xl flex items-center space-x-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
+                id="btn-add-nps-dim"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Size</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleResetNps}
+                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs font-semibold rounded-xl border border-rose-100 dark:border-rose-950/30 flex items-center space-x-1.5 cursor-pointer transition-colors"
+                id="btn-reset-nps-dim"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Reset Standards</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Search Bar for NPS */}
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-2.5 w-4.5 h-4.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search nominal size (e.g. 2, 1/2) or OD..."
+              value={npsSearch}
+              onChange={(e) => setNpsSearch(e.target.value)}
+              className="w-full pl-9.5 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-sans text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-1.5 focus:ring-slate-500 placeholder:text-slate-400/70"
+              id="nps-table-search-input"
+            />
+          </div>
+
+          {/* Table list */}
+          <div className="border border-slate-150 dark:border-slate-800 rounded-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-950/40 border-b border-slate-150 dark:border-slate-800 text-[10px] uppercase font-mono tracking-wider text-slate-400 font-bold">
+                    <th className="py-3 px-4">Nominal Size (NPS)</th>
+                    <th className="py-3 px-4">Nominal Diameter (DN)</th>
+                    <th className="py-3 px-4">Outside Diameter (OD)</th>
+                    <th className="py-3 px-4">Thickness Schedules (mm)</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  {(() => {
+                    const filtered = npsList.filter(item => {
+                      return !npsSearch || 
+                        item.nps.toLowerCase().includes(npsSearch.toLowerCase()) ||
+                        String(item.od).includes(npsSearch) ||
+                        String(item.dn).includes(npsSearch);
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={5} className="py-8 text-center text-slate-400">
+                            No nominal sizes found matching search.
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    return filtered.map((item) => (
+                      <tr key={item.nps} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition-colors">
+                        <td className="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-white">
+                          NPS {item.nps}"
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-slate-600 dark:text-slate-300">
+                          DN {item.dn} mm
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-slate-600 dark:text-slate-300">
+                          {item.od} mm
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="flex flex-wrap gap-1">
+                            {Object.entries(item.schedules).map(([sch, thickness]) => (
+                              <span key={sch} className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded text-[10px] font-mono border border-slate-200/50 dark:border-slate-750">
+                                <strong>{sch}</strong>: {thickness}mm
+                              </span>
+                            ))}
+                            {Object.keys(item.schedules).length === 0 && (
+                              <span className="text-slate-400 italic text-[10px]">No schedules defined</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end space-x-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenNpsEdit(item)}
+                              className="p-1 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all cursor-pointer"
+                              title="Edit NPS record"
+                              id={`btn-edit-nps-${item.nps.replace('/', '_')}`}
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleNpsDelete(item.nps)}
+                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg transition-all cursor-pointer"
+                              title="Delete NPS record"
+                              id={`btn-delete-nps-${item.nps.replace('/', '_')}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ));
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </motion.div>
     ) : (
       /* Analytics Page Content */
       <motion.div
@@ -1570,6 +1841,192 @@ export default function AdminPanel({
                   Reset Factory Data
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* NPS Dimension Add/Edit Modal */}
+      <AnimatePresence>
+        {isNpsModalOpen && (
+          <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden font-sans"
+              id="nps-edit-modal-root"
+            >
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-slate-150 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-955/10">
+                <div className="flex items-center space-x-2.5">
+                  <div className="p-1.5 bg-slate-950 dark:bg-slate-800 text-amber-500 rounded-lg">
+                    <Ruler className="w-4.5 h-4.5" />
+                  </div>
+                  <h3 className="text-sm font-display font-extrabold text-slate-900 dark:text-white tracking-tight">
+                    {editingNps ? `Edit Dimensions for NPS ${editingNps.nps}"` : 'Add New NPS Dimension Record'}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsNpsModalOpen(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-lg transition-all cursor-pointer"
+                  id="close-nps-modal-btn"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Form body */}
+              <form onSubmit={handleNpsFormSubmit} className="p-6 space-y-4">
+                <div className="grid grid-cols-3 gap-3">
+                  {/* NPS string input */}
+                  <div>
+                    <label className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block mb-1">
+                      NPS Code *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 1/2, 2 1/2, 5"
+                      value={npsFormNps}
+                      onChange={(e) => setNpsFormNps(e.target.value)}
+                      disabled={editingNps !== null} // cannot rename the NPS key to avoid duplicates
+                      className="w-full px-3 py-2 bg-slate-55 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-50 focus:outline-hidden focus:ring-1.5 focus:ring-slate-500 disabled:opacity-50"
+                      id="nps-form-nps-input"
+                    />
+                  </div>
+
+                  {/* DN number input */}
+                  <div>
+                    <label className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block mb-1">
+                      Nominal (DN) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      placeholder="e.g. 15, 50, 125"
+                      value={npsFormDn || ''}
+                      onChange={(e) => setNpsFormDn(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-slate-55 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-50 focus:outline-hidden focus:ring-1.5 focus:ring-slate-500"
+                      id="nps-form-dn-input"
+                    />
+                  </div>
+
+                  {/* OD float input */}
+                  <div>
+                    <label className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block mb-1">
+                      Outside Dia (OD) *
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      required
+                      min="0.1"
+                      placeholder="e.g. 21.3, 60.3"
+                      value={npsFormOd || ''}
+                      onChange={(e) => setNpsFormOd(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-slate-55 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-50 focus:outline-hidden focus:ring-1.5 focus:ring-slate-500"
+                      id="nps-form-od-input"
+                    />
+                  </div>
+                </div>
+
+                {/* Schedules sub-section */}
+                <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-4">
+                  <label className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">
+                    Thickness Schedules Map (Wall thickness in mm)
+                  </label>
+
+                  {/* List of current schedules in the map */}
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto p-1.5 bg-slate-55 dark:bg-slate-950 rounded-xl border border-slate-150 dark:border-slate-850">
+                    {Object.entries(npsFormSchedules).map(([sch, thick]) => (
+                      <div key={sch} className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200/50 dark:border-slate-800 shadow-3xs">
+                        <span className="font-mono text-xs text-slate-700 dark:text-slate-300">
+                          SCH <strong className="text-slate-900 dark:text-white">{sch}</strong>: {thick} mm
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = { ...npsFormSchedules };
+                            delete updated[sch];
+                            setNpsFormSchedules(updated);
+                          }}
+                          className="text-xs text-rose-500 hover:text-rose-600 px-1.5 py-0.5 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded cursor-pointer font-semibold transition-colors"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                    {Object.keys(npsFormSchedules).length === 0 && (
+                      <p className="text-center text-xs text-slate-400 py-3 italic">
+                        No schedules configured yet. Add schedules below.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Add dynamic schedule form row */}
+                  <div className="flex gap-2 items-end pt-1 bg-slate-100/30 dark:bg-slate-950/30 p-3 rounded-xl border border-slate-150 dark:border-slate-800">
+                    <div className="flex-1">
+                      <label className="text-[9px] font-bold text-slate-400 block mb-0.5">Schedule Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 40, 80s, STD, XS"
+                        value={newSchKey}
+                        onChange={(e) => setNewSchKey(e.target.value.toUpperCase())}
+                        className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-lg text-xs font-semibold text-slate-900 dark:text-slate-100"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-[9px] font-bold text-slate-400 block mb-0.5">Thickness (mm)</label>
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder="e.g. 2.77, 3.73"
+                        value={newSchVal}
+                        onChange={(e) => setNewSchVal(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-lg text-xs font-semibold text-slate-900 dark:text-slate-100"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!newSchKey.trim() || !newSchVal.trim()) {
+                          alert("Please specify both a Schedule name and Wall thickness.");
+                          return;
+                        }
+                        const updated = { ...npsFormSchedules };
+                        updated[newSchKey.trim()] = newSchVal.trim();
+                        setNpsFormSchedules(updated);
+                        setNewSchKey('');
+                        setNewSchVal('');
+                      }}
+                      className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-lg text-xs font-bold cursor-pointer h-[30px]"
+                    >
+                      Add SCH
+                    </button>
+                  </div>
+                </div>
+
+                {/* Form Actions */}
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsNpsModalOpen(false)}
+                    className="px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850 rounded-xl transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-slate-950 hover:bg-slate-900 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-950 text-xs font-bold rounded-xl shadow-md cursor-pointer transition-all active:scale-95"
+                    id="submit-nps-form-btn"
+                  >
+                    {editingNps ? 'Save Changes' : 'Create Record'}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

@@ -11,8 +11,10 @@ import {
   where, 
   orderBy, 
   limit, 
-  getDocs
+  getDocs,
+  deleteDoc
 } from 'firebase/firestore';
+import { PIPE_DIMENSIONS, PipeDimensionRecord } from './pipeDimensions';
 import firebaseConfigJson from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -378,4 +380,99 @@ export function subscribeToRealtimeAnalytics(onUpdate: (data: AnalyticsData) => 
     unsubscribeActions();
     unsubscribeSearches();
   };
+}
+
+export function subscribeToNpsDimensions(onUpdate: (data: PipeDimensionRecord[]) => void) {
+  const colRef = collection(db, 'nps_dimensions');
+  
+  return onSnapshot(colRef, async (snapshot) => {
+    if (snapshot.empty) {
+      console.log('NPS dimensions collection is empty. Bootstrapping with default values...');
+      // Seed default pipe dimensions
+      for (const item of PIPE_DIMENSIONS) {
+        const id = item.nps.replace('/', '_').replace(' ', '_');
+        try {
+          await setDoc(doc(db, 'nps_dimensions', id), {
+            id,
+            nps: item.nps,
+            dn: item.dn,
+            od: item.od,
+            schedules: item.schedules
+          });
+        } catch (e) {
+          console.error(`Failed to seed NPS ${item.nps}:`, e);
+        }
+      }
+      return;
+    }
+
+    const records: PipeDimensionRecord[] = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      records.push({
+        nps: data.nps,
+        dn: Number(data.dn),
+        od: Number(data.od),
+        schedules: data.schedules || {}
+      });
+    });
+
+    // Sort by DN (numeric order of nominal size)
+    records.sort((a, b) => a.dn - b.dn);
+    onUpdate(records);
+  }, (error) => {
+    handleFirestoreError(error, OperationType.LIST, 'nps_dimensions');
+  });
+}
+
+export async function addNpsDimension(record: PipeDimensionRecord) {
+  const npsId = record.nps.replace('/', '_').replace(' ', '_');
+  const docRef = doc(db, 'nps_dimensions', npsId);
+  try {
+    await setDoc(docRef, {
+      id: npsId,
+      nps: record.nps,
+      dn: Number(record.dn),
+      od: Number(record.od),
+      schedules: record.schedules
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `nps_dimensions/${npsId}`);
+  }
+}
+
+export async function updateNpsDimension(npsId: string, record: Partial<PipeDimensionRecord>) {
+  const docRef = doc(db, 'nps_dimensions', npsId);
+  try {
+    await setDoc(docRef, record, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `nps_dimensions/${npsId}`);
+  }
+}
+
+export async function deleteNpsDimension(npsId: string) {
+  const docRef = doc(db, 'nps_dimensions', npsId);
+  try {
+    await deleteDoc(docRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, `nps_dimensions/${npsId}`);
+  }
+}
+
+export async function resetNpsDimensionsToDefault() {
+  // To reset, we can delete existing and seed them, or simply overwrite them
+  for (const item of PIPE_DIMENSIONS) {
+    const id = item.nps.replace('/', '_').replace(' ', '_');
+    try {
+      await setDoc(doc(db, 'nps_dimensions', id), {
+        id,
+        nps: item.nps,
+        dn: item.dn,
+        od: item.od,
+        schedules: item.schedules
+      });
+    } catch (e) {
+      console.error(`Failed to reset/seed NPS ${item.nps}:`, e);
+    }
+  }
 }
