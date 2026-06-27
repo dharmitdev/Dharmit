@@ -20,7 +20,8 @@ import {
   ShieldAlert,
   LogOut,
   Settings,
-  LayoutGrid
+  LayoutGrid,
+  AlertTriangle
 } from 'lucide-react';
 import { FilterState, ConsolidateItem, ActivityLog } from './types';
 import { consolidatedDataset, searchPipeItems, pipeItems, getSearchRelevanceScore } from './data';
@@ -31,6 +32,7 @@ import Logo from './components/Logo';
 import LoginModal from './components/LoginModal';
 import AdminPanel from './components/AdminPanel';
 import PipeDimensionCalculator from './components/PipeDimensionCalculator';
+import FeedbackModal from './components/FeedbackModal';
 import { initializeVisitorTracking, logVisitorAction } from './lib/firebase';
 
 export default function App() {
@@ -78,6 +80,7 @@ export default function App() {
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [showWelcomeToast, setShowWelcomeToast] = useState<boolean>(false);
   const [showCalculator, setShowCalculator] = useState<boolean>(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
   
   // Activity logging state
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(() => {
@@ -474,6 +477,17 @@ export default function App() {
 
           {/* Admin panel triggers */}
           <div className="flex items-center space-x-2 sm:space-x-4">
+            {/* Feedback & Bug Reports Button */}
+            <button
+              onClick={() => setShowFeedbackModal(true)}
+              className="px-3 py-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 rounded-lg border border-indigo-200/60 dark:border-indigo-900/40 hover:border-indigo-300 dark:hover:border-indigo-800 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/10 transition-all flex items-center space-x-1 cursor-pointer shadow-2xs hover:shadow-xs"
+              id="report-bug-button"
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Report Bug</span>
+              <span className="sm:hidden">Bug</span>
+            </button>
+
             {isAdminLoggedIn ? (
               <div className="flex items-center space-x-2 sm:space-x-4">
                 {/* View toggle */}
@@ -971,6 +985,12 @@ export default function App() {
         isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}
         onLoginSuccess={handleLoginSuccess}
+      />
+
+      {/* User Feedback & Bug Report Dialog */}
+      <FeedbackModal
+        isOpen={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
       />
 
       {/* Welcome Toast Notification */}

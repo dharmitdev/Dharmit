@@ -39,3 +39,25 @@ export interface ActivityLog {
   timestamp: string;
 }
 
+export interface Feedback {
+  id: string;
+  name: string;
+  email?: string;
+  type: 'bug' | 'suggestion' | 'inquiry' | 'other';
+  message: string;
+  timestamp: string;
+  status: 'pending' | 'resolved' | 'ignored';
+  attachmentName?: string;
+  attachmentType?: string;
+  attachmentData?: string; // base64 string
+}
+
+export interface AppSettings {
+  id: string;
+  web3FormsKey?: string;
+  emailNotificationsEnabled: boolean;
+  notificationRecipient?: string;
+}
+
+
+

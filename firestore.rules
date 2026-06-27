@@ -41,5 +41,20 @@ service cloud.firestore {
     match /nps_dimensions/{dimensionId} {
       allow read, write: if true;
     }
+
+    // 7. Feedbacks Rules
+    match /feedbacks/{feedbackId} {
+      allow get, list: if true;
+      allow create: if isValidId(feedbackId)
+        && (incoming().keys().hasAny(['id', 'name', 'email', 'type', 'message', 'timestamp', 'status', 'attachmentName', 'attachmentType', 'attachmentData']))
+        && incoming().name is string && incoming().name.size() > 0
+        && incoming().message is string && incoming().message.size() > 0;
+      allow update, delete: if true;
+    }
+
+    // 8. Settings Rules
+    match /settings/{settingsId} {
+      allow read, write: if true;
+    }
   }
 }

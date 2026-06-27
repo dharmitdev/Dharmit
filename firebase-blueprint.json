@@ -59,6 +59,36 @@
         }
       },
       "required": ["id", "nps", "dn", "od", "schedules"]
+    },
+    "Feedback": {
+      "title": "Feedback",
+      "description": "User bug report or feedback form submission",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "type": { "type": "string", "enum": ["bug", "suggestion", "inquiry", "other"] },
+        "message": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "resolved", "ignored"] },
+        "attachmentName": { "type": "string" },
+        "attachmentType": { "type": "string" },
+        "attachmentData": { "type": "string" }
+      },
+      "required": ["id", "name", "type", "message", "timestamp", "status"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "App notification and integration settings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "web3FormsKey": { "type": "string" },
+        "emailNotificationsEnabled": { "type": "boolean" },
+        "notificationRecipient": { "type": "string" }
+      },
+      "required": ["id"]
     }
   },
   "firestore": {
@@ -77,6 +107,14 @@
     "nps_dimensions/{dimensionId}": {
       "schema": "NpsDimension",
       "description": "ASME/ANSI B36.10 Pipe Dimensions chart"
+    },
+    "feedbacks/{feedbackId}": {
+      "schema": "Feedback",
+      "description": "User bug reports and system feedback submissions"
+    },
+    "settings/{settingsId}": {
+      "schema": "Settings",
+      "description": "General system configuration"
     }
   }
 }

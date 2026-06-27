@@ -5,6 +5,7 @@ import {
   collection, 
   addDoc, 
   setDoc, 
+  getDoc,
   doc, 
   onSnapshot, 
   query, 
@@ -16,6 +17,7 @@ import {
 } from 'firebase/firestore';
 import { PIPE_DIMENSIONS, PipeDimensionRecord } from './pipeDimensions';
 import firebaseConfigJson from '../../firebase-applet-config.json';
+import { Feedback, AppSettings } from '../types';
 
 const firebaseConfig = {
   apiKey: (import.meta.env.VITE_FIREBASE_API_KEY as string) || firebaseConfigJson.apiKey,
@@ -386,11 +388,40 @@ export function subscribeToNpsDimensions(onUpdate: (data: PipeDimensionRecord[])
   const colRef = collection(db, 'nps_dimensions');
   
   return onSnapshot(colRef, async (snapshot) => {
-    if (snapshot.empty) {
-      console.log('NPS dimensions collection is empty. Bootstrapping with default values...');
-      // Seed default pipe dimensions
-      for (const item of PIPE_DIMENSIONS) {
-        const id = item.nps.replace('/', '_').replace(' ', '_');
+    const recordsMap = new Map<string, PipeDimensionRecord>();
+    
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (data && data.nps) {
+        recordsMap.set(data.nps, {
+          nps: data.nps,
+          dn: Number(data.dn),
+          od: Number(data.od),
+          schedules: data.schedules || {}
+        });
+      }
+    });
+
+    // Check if any standard nominal sizes from PIPE_DIMENSIONS are missing
+    const missingStandardItems: PipeDimensionRecord[] = [];
+    for (const item of PIPE_DIMENSIONS) {
+      if (!recordsMap.has(item.nps)) {
+        missingStandardItems.push(item);
+        // Add to active list immediately so the UI is fully populated right away
+        recordsMap.set(item.nps, item);
+      }
+    }
+
+    // Convert map to sorted array
+    const records = Array.from(recordsMap.values());
+    records.sort((a, b) => a.dn - b.dn);
+    onUpdate(records);
+
+    // If there are missing standard items, seed them in the background to make them editable & deletable
+    if (missingStandardItems.length > 0) {
+      console.log(`Self-healing: Found ${missingStandardItems.length} missing standard sizes in Firestore. Seeding them now...`);
+      for (const item of missingStandardItems) {
+        const id = item.nps.replace(/\//g, '_').replace(/\s+/g, '_');
         try {
           await setDoc(doc(db, 'nps_dimensions', id), {
             id,
@@ -400,33 +431,21 @@ export function subscribeToNpsDimensions(onUpdate: (data: PipeDimensionRecord[])
             schedules: item.schedules
           });
         } catch (e) {
-          console.error(`Failed to seed NPS ${item.nps}:`, e);
+          console.error(`Failed to self-heal seed NPS ${item.nps}:`, e);
         }
       }
-      return;
     }
-
-    const records: PipeDimensionRecord[] = [];
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      records.push({
-        nps: data.nps,
-        dn: Number(data.dn),
-        od: Number(data.od),
-        schedules: data.schedules || {}
-      });
-    });
-
-    // Sort by DN (numeric order of nominal size)
+  }, (error) => {
+    console.error("Firestore subscription error for nps_dimensions:", error);
+    // Provide static fallback in case of Firestore rules, connection, or permission issues
+    const records = [...PIPE_DIMENSIONS];
     records.sort((a, b) => a.dn - b.dn);
     onUpdate(records);
-  }, (error) => {
-    handleFirestoreError(error, OperationType.LIST, 'nps_dimensions');
   });
 }
 
 export async function addNpsDimension(record: PipeDimensionRecord) {
-  const npsId = record.nps.replace('/', '_').replace(' ', '_');
+  const npsId = record.nps.replace(/\//g, '_').replace(/\s+/g, '_');
   const docRef = doc(db, 'nps_dimensions', npsId);
   try {
     await setDoc(docRef, {
@@ -462,7 +481,7 @@ export async function deleteNpsDimension(npsId: string) {
 export async function resetNpsDimensionsToDefault() {
   // To reset, we can delete existing and seed them, or simply overwrite them
   for (const item of PIPE_DIMENSIONS) {
-    const id = item.nps.replace('/', '_').replace(' ', '_');
+    const id = item.nps.replace(/\//g, '_').replace(/\s+/g, '_');
     try {
       await setDoc(doc(db, 'nps_dimensions', id), {
         id,
@@ -476,3 +495,143 @@ export async function resetNpsDimensionsToDefault() {
     }
   }
 }
+
+// ==========================================
+// USER FEEDBACK AND BUG REPORTS DATABASE API
+// ==========================================
+
+export async function submitFeedback(feedbackData: Omit<Feedback, 'id' | 'timestamp' | 'status'>) {
+  const id = `feedback-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+  const docRef = doc(db, 'feedbacks', id);
+  try {
+    const feedbackDoc: Feedback = {
+      ...feedbackData,
+      id,
+      timestamp: new Date().toISOString(),
+      status: 'pending'
+    };
+    await setDoc(docRef, feedbackDoc);
+    return id;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `feedbacks/${id}`);
+    throw error;
+  }
+}
+
+export function subscribeFeedbacks(onUpdate: (feedbacks: Feedback[]) => void) {
+  const colRef = collection(db, 'feedbacks');
+  const q = query(colRef, orderBy('timestamp', 'desc'));
+
+  return onSnapshot(q, (snapshot) => {
+    const records: Feedback[] = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      records.push({
+        id: data.id || doc.id,
+        name: data.name,
+        email: data.email,
+        type: data.type,
+        message: data.message,
+        timestamp: data.timestamp,
+        status: data.status || 'pending',
+        attachmentName: data.attachmentName,
+        attachmentType: data.attachmentType,
+        attachmentData: data.attachmentData
+      });
+    });
+    onUpdate(records);
+  }, (error) => {
+    console.error("Firestore subscription error for feedbacks:", error);
+    onUpdate([]);
+  });
+}
+
+export async function updateFeedbackStatus(feedbackId: string, status: 'pending' | 'resolved' | 'ignored') {
+  const docRef = doc(db, 'feedbacks', feedbackId);
+  try {
+    await setDoc(docRef, { status }, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `feedbacks/${feedbackId}`);
+  }
+}
+
+export async function deleteFeedback(feedbackId: string) {
+  const docRef = doc(db, 'feedbacks', feedbackId);
+  try {
+    await deleteDoc(docRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, `feedbacks/${feedbackId}`);
+  }
+}
+
+export async function getAppSettings(): Promise<AppSettings> {
+  const docRef = doc(db, 'settings', 'admin');
+  try {
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      return {
+        id: 'admin',
+        web3FormsKey: data.web3FormsKey || '',
+        emailNotificationsEnabled: data.emailNotificationsEnabled ?? false,
+        notificationRecipient: data.notificationRecipient || 'yashpanchal383@gmail.com'
+      };
+    } else {
+      const envKey = (import.meta.env.VITE_WEB3FORMS_ACCESS_KEY as string) || '';
+      return {
+        id: 'admin',
+        web3FormsKey: envKey,
+        emailNotificationsEnabled: !!envKey,
+        notificationRecipient: 'yashpanchal383@gmail.com'
+      };
+    }
+  } catch (error) {
+    console.error("Failed to fetch settings, returning defaults:", error);
+    const envKey = (import.meta.env.VITE_WEB3FORMS_ACCESS_KEY as string) || '';
+    return {
+      id: 'admin',
+      web3FormsKey: envKey,
+      emailNotificationsEnabled: !!envKey,
+      notificationRecipient: 'yashpanchal383@gmail.com'
+    };
+  }
+}
+
+export async function saveAppSettings(settings: Omit<AppSettings, 'id'>) {
+  const docRef = doc(db, 'settings', 'admin');
+  try {
+    await setDoc(docRef, {
+      ...settings,
+      id: 'admin'
+    }, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, 'settings/admin');
+  }
+}
+
+export function subscribeAppSettings(onUpdate: (settings: AppSettings) => void) {
+  const docRef = doc(db, 'settings', 'admin');
+  return onSnapshot(docRef, (docSnap) => {
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      onUpdate({
+        id: 'admin',
+        web3FormsKey: data.web3FormsKey || '',
+        emailNotificationsEnabled: data.emailNotificationsEnabled ?? false,
+        notificationRecipient: data.notificationRecipient || 'yashpanchal383@gmail.com'
+      });
+    } else {
+      const envKey = (import.meta.env.VITE_WEB3FORMS_ACCESS_KEY as string) || '';
+      onUpdate({
+        id: 'admin',
+        web3FormsKey: envKey,
+        emailNotificationsEnabled: !!envKey,
+        notificationRecipient: 'yashpanchal383@gmail.com'
+      });
+    }
+  }, (error) => {
+    console.error("Settings subscription error:", error);
+  });
+}
+
+
