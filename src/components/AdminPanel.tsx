@@ -478,9 +478,13 @@ export default function AdminPanel({
   const filteredDataset = useMemo(() => {
     return dataset.filter(item => {
       // Filter by search query
-      const matchesSearch = adminQuery.trim() === '' || 
-        `${item.itemName} ${item.specification} ${item.grade} ${item.material}`.toLowerCase()
-        .includes(adminQuery.toLowerCase());
+      const matchesSearch = (() => {
+        const query = adminQuery.trim().toLowerCase();
+        if (query === '') return true;
+        const words = query.split(/\s+/).filter(w => w !== '');
+        const targetText = `${item.itemName} ${item.specification} ${item.grade} ${item.material}`.toLowerCase();
+        return words.every(word => targetText.includes(word));
+      })();
 
       // Filter by Material
       const matchesMaterial = selectedMaterial === 'All' || item.material === selectedMaterial;
