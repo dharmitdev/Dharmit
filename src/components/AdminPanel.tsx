@@ -149,7 +149,7 @@ export default function AdminPanel({
   // Email Notification settings state
   const [emailEnabled, setEmailEnabled] = useState(false);
   const [web3FormsKey, setWeb3FormsKey] = useState('');
-  const [notificationRecipient, setNotificationRecipient] = useState('yashpanchal383@gmail.com');
+  const [notificationRecipient, setNotificationRecipient] = useState('dharmitpatel8960@gmail.com');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsSaveSuccess, setSettingsSaveSuccess] = useState(false);
   const [showEmailSettings, setShowEmailSettings] = useState(false);
@@ -187,7 +187,7 @@ export default function AdminPanel({
     const unsubscribe = subscribeAppSettings((settings) => {
       setEmailEnabled(settings.emailNotificationsEnabled);
       setWeb3FormsKey(settings.web3FormsKey || '');
-      setNotificationRecipient(settings.notificationRecipient || 'yashpanchal383@gmail.com');
+      setNotificationRecipient(settings.notificationRecipient || 'dharmitpatel8960@gmail.com');
     });
     return () => unsubscribe();
   }, []);
@@ -1154,8 +1154,8 @@ export default function AdminPanel({
                 className="shrink-0 inline-flex items-center space-x-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100/80 dark:bg-indigo-950/20 dark:hover:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 text-xs font-bold rounded-lg border border-indigo-100/30 dark:border-indigo-900/30 transition-all cursor-pointer"
                 id="toggle-email-settings-btn"
               >
-                <Settings className="w-3.5 h-3.5" />
-                <span>{showEmailSettings ? "Collapse Settings" : "Configure Emails"}</span>
+                {showEmailSettings ? <X className="w-3.5 h-3.5" /> : <Settings className="w-3.5 h-3.5" />}
+                <span>{showEmailSettings ? "Hide Settings" : "Configure Emails"}</span>
               </button>
             </div>
 
@@ -1188,7 +1188,7 @@ export default function AdminPanel({
                     </label>
                     <input
                       type="email"
-                      placeholder="e.g. yashpanchal383@gmail.com"
+                      placeholder="e.g. dharmitpatel8960@gmail.com"
                       value={notificationRecipient}
                       onChange={(e) => setNotificationRecipient(e.target.value)}
                       className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-sans text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder:text-slate-400/50"
@@ -1229,6 +1229,15 @@ export default function AdminPanel({
                         <span>Config saved!</span>
                       </span>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => setShowEmailSettings(false)}
+                      className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/80 active:bg-slate-300/80 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 transition-all cursor-pointer"
+                      id="close-email-settings-btn"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Hide Settings</span>
+                    </button>
                     <button
                       type="button"
                       disabled={isSavingSettings}

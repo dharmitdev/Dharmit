@@ -164,6 +164,12 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
           formData.append("email", email.trim() || "no-reply@pipecalc.com");
           formData.append("subject", `[Pipe Calc Feedback] New ${type.toUpperCase()} from ${name.trim()}`);
 
+          // Append structured key-value pairs for Web3Forms to display nicely in the email layout
+          formData.append("Submitter Name", name.trim());
+          formData.append("Submitter Email", email.trim() || "Not Provided");
+          formData.append("Feedback Type", type.toUpperCase());
+          formData.append("Feedback Message", message.trim());
+
           let emailBody = `You have received a new ${type.toUpperCase()} submission from the Pipe Dimension Calculator feedback form.\n\n`;
           emailBody += `Name: ${name.trim()}\n`;
           emailBody += `Email: ${email.trim() || 'Not Provided'}\n`;
@@ -175,6 +181,9 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
             emailBody += `Attachment Name: ${attachment.name}\n`;
             emailBody += `Attachment Size: ${attachment.size > 1024 * 1024 ? (attachment.size / (1024 * 1024)).toFixed(1) + ' MB' : (attachment.size / 1024).toFixed(1) + ' KB'}\n`;
             emailBody += `You can view or download this attachment directly inside your Pipe Calc Admin Panel.`;
+            
+            formData.append("Attachment Filename", attachment.name);
+            formData.append("Attachment Size", attachment.size > 1024 * 1024 ? `${(attachment.size / (1024 * 1024)).toFixed(1)} MB` : `${(attachment.size / 1024).toFixed(1)} KB`);
           }
 
           formData.append("message", emailBody);

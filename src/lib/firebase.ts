@@ -590,7 +590,7 @@ export async function getAppSettings(): Promise<AppSettings> {
         id: 'admin',
         web3FormsKey: data.web3FormsKey || '',
         emailNotificationsEnabled: data.emailNotificationsEnabled ?? false,
-        notificationRecipient: data.notificationRecipient || 'yashpanchal383@gmail.com'
+        notificationRecipient: data.notificationRecipient || 'dharmitpatel8960@gmail.com'
       };
     } else {
       const envKey = (import.meta.env.VITE_WEB3FORMS_ACCESS_KEY as string) || '';
@@ -598,7 +598,7 @@ export async function getAppSettings(): Promise<AppSettings> {
         id: 'admin',
         web3FormsKey: envKey,
         emailNotificationsEnabled: !!envKey,
-        notificationRecipient: 'yashpanchal383@gmail.com'
+        notificationRecipient: 'dharmitpatel8960@gmail.com'
       };
     }
   } catch (error) {
@@ -608,7 +608,7 @@ export async function getAppSettings(): Promise<AppSettings> {
       id: 'admin',
       web3FormsKey: envKey,
       emailNotificationsEnabled: !!envKey,
-      notificationRecipient: 'yashpanchal383@gmail.com'
+      notificationRecipient: 'dharmitpatel8960@gmail.com'
     };
   }
 }
@@ -643,7 +643,7 @@ export function subscribeAppSettings(onUpdate: (settings: AppSettings) => void) 
         id: 'admin',
         web3FormsKey: data.web3FormsKey || '',
         emailNotificationsEnabled: data.emailNotificationsEnabled ?? false,
-        notificationRecipient: data.notificationRecipient || 'yashpanchal383@gmail.com'
+        notificationRecipient: data.notificationRecipient || 'dharmitpatel8960@gmail.com'
       });
     } else {
       const envKey = (import.meta.env.VITE_WEB3FORMS_ACCESS_KEY as string) || '';
@@ -651,7 +651,7 @@ export function subscribeAppSettings(onUpdate: (settings: AppSettings) => void) 
         id: 'admin',
         web3FormsKey: envKey,
         emailNotificationsEnabled: !!envKey,
-        notificationRecipient: 'yashpanchal383@gmail.com'
+        notificationRecipient: 'dharmitpatel8960@gmail.com'
       });
     }
   }, (error) => {
