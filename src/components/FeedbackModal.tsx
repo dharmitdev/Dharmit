@@ -227,7 +227,6 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={handleClose}
             className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
           />
 
@@ -237,7 +236,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 15 }}
             transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-            className="relative bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full overflow-hidden p-6 sm:p-7 shadow-2xl border border-slate-200 dark:border-slate-800 z-10"
+            className="relative bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full max-h-[calc(100vh-2rem)] overflow-y-auto p-5 sm:p-7 shadow-2xl border border-slate-200 dark:border-slate-800 z-10"
             id="feedback-modal"
           >
             {/* Close Button */}
@@ -328,7 +327,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                   <label className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">
                     Type of Feedback
                   </label>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <button
                       type="button"
                       onClick={() => setType('bug')}

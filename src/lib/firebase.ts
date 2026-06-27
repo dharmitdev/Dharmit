@@ -504,12 +504,28 @@ export async function submitFeedback(feedbackData: Omit<Feedback, 'id' | 'timest
   const id = `feedback-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
   const docRef = doc(db, 'feedbacks', id);
   try {
-    const feedbackDoc: Feedback = {
-      ...feedbackData,
+    const feedbackDoc: any = {
       id,
+      name: feedbackData.name,
+      type: feedbackData.type,
+      message: feedbackData.message,
       timestamp: new Date().toISOString(),
       status: 'pending'
     };
+
+    if (feedbackData.email !== undefined) {
+      feedbackDoc.email = feedbackData.email;
+    }
+    if (feedbackData.attachmentName !== undefined) {
+      feedbackDoc.attachmentName = feedbackData.attachmentName;
+    }
+    if (feedbackData.attachmentType !== undefined) {
+      feedbackDoc.attachmentType = feedbackData.attachmentType;
+    }
+    if (feedbackData.attachmentData !== undefined) {
+      feedbackDoc.attachmentData = feedbackData.attachmentData;
+    }
+
     await setDoc(docRef, feedbackDoc);
     return id;
   } catch (error) {
@@ -600,10 +616,19 @@ export async function getAppSettings(): Promise<AppSettings> {
 export async function saveAppSettings(settings: Omit<AppSettings, 'id'>) {
   const docRef = doc(db, 'settings', 'admin');
   try {
-    await setDoc(docRef, {
-      ...settings,
-      id: 'admin'
-    }, { merge: true });
+    const cleanSettings: any = {
+      id: 'admin',
+      emailNotificationsEnabled: settings.emailNotificationsEnabled ?? false
+    };
+
+    if (settings.web3FormsKey !== undefined) {
+      cleanSettings.web3FormsKey = settings.web3FormsKey;
+    }
+    if (settings.notificationRecipient !== undefined) {
+      cleanSettings.notificationRecipient = settings.notificationRecipient;
+    }
+
+    await setDoc(docRef, cleanSettings, { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, 'settings/admin');
   }
