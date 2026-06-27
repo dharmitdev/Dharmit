@@ -462,38 +462,40 @@ export default function App() {
       
       {/* Header section */}
       <header className="border-b border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md sticky top-0 z-30 transition-all">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-slate-950 dark:bg-slate-900 flex items-center justify-center shadow-md border border-slate-200/10">
-              <Logo className="w-6.5 h-6.5" />
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-950 dark:bg-slate-900 flex items-center justify-center shadow-md border border-slate-200/10 shrink-0">
+              <Logo className="w-5.5 h-5.5 sm:w-6.5 sm:h-6.5" />
             </div>
-            <div>
-              <span className="text-xs uppercase tracking-widest font-mono font-bold text-slate-400 block -mb-0.5">Materials Desk</span>
-              <h1 className="text-base font-display font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
+            <div className="min-w-0">
+              <span className="text-[10px] sm:text-xs uppercase tracking-widest font-mono font-bold text-slate-400 hidden min-[400px]:block -mb-0.5 truncate">
+                Materials Desk
+              </span>
+              <h1 className="text-sm sm:text-base font-display font-extrabold tracking-tight text-slate-900 dark:text-slate-50 truncate">
                 Pipe & Tube Finder
               </h1>
             </div>
           </div>
 
           {/* Admin panel triggers */}
-          <div className="flex items-center space-x-2 sm:space-x-4">
+          <div className="flex items-center space-x-1.5 sm:space-x-4 shrink-0">
             {/* Feedback & Bug Reports Button */}
             <button
               onClick={() => setShowFeedbackModal(true)}
-              className="px-3 py-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 rounded-lg border border-indigo-200/60 dark:border-indigo-900/40 hover:border-indigo-300 dark:hover:border-indigo-800 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/10 transition-all flex items-center space-x-1 cursor-pointer shadow-2xs hover:shadow-xs"
+              className="px-2 py-1.5 sm:px-3 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 rounded-lg border border-indigo-200/60 dark:border-indigo-900/40 hover:border-indigo-300 dark:hover:border-indigo-800 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/10 transition-all flex items-center space-x-1 cursor-pointer shadow-2xs hover:shadow-xs select-none active:scale-95"
               id="report-bug-button"
             >
-              <AlertTriangle className="w-3.5 h-3.5" />
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
               <span className="hidden sm:inline">Report Bug</span>
-              <span className="sm:hidden">Bug</span>
+              <span className="inline sm:hidden hidden min-[440px]:inline">Bug</span>
             </button>
 
             {isAdminLoggedIn ? (
-              <div className="flex items-center space-x-2 sm:space-x-4">
+              <div className="flex items-center space-x-1.5 sm:space-x-4">
                 {/* View toggle */}
                 <button
                   onClick={() => setAdminViewActive(!adminViewActive)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1 border cursor-pointer ${
+                  className={`px-2 py-1.5 sm:px-3 rounded-lg text-xs font-bold transition-all flex items-center space-x-1 border cursor-pointer select-none active:scale-95 ${
                     adminViewActive 
                       ? 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border-slate-250 dark:border-slate-700 text-slate-800 dark:text-slate-100' 
                       : 'bg-slate-950 hover:bg-slate-900 dark:bg-white dark:hover:bg-slate-100 border-transparent text-white dark:text-slate-950 shadow-sm'
@@ -502,13 +504,14 @@ export default function App() {
                 >
                   {adminViewActive ? (
                     <>
-                      <LayoutGrid className="w-3.5 h-3.5" />
+                      <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
                       <span className="hidden sm:inline">Public App</span>
+                      <span className="inline sm:hidden hidden min-[440px]:inline">App</span>
                     </>
                   ) : (
                     <>
-                      <Settings className="w-3.5 h-3.5" />
-                      <span>Console</span>
+                      <Settings className="w-3.5 h-3.5 shrink-0" />
+                      <span className="hidden min-[440px]:inline">Console</span>
                     </>
                   )}
                 </button>
@@ -516,21 +519,22 @@ export default function App() {
                 {/* Logout */}
                 <button
                   onClick={handleLogout}
-                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all cursor-pointer"
+                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all cursor-pointer select-none active:scale-95"
                   title="Sign out of administration session"
                   id="admin-logout-button"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-4 h-4 shrink-0" />
                 </button>
               </div>
             ) : (
               <button
                 onClick={() => setShowLoginModal(true)}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white rounded-lg border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all flex items-center space-x-1 cursor-pointer"
+                className="px-2 py-1.5 sm:px-3 text-xs font-semibold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white rounded-lg border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all flex items-center space-x-1 cursor-pointer select-none active:scale-95"
                 id="admin-login-button"
               >
-                <Shield className="w-3.5 h-3.5" />
-                <span>Admin Login</span>
+                <Shield className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline">Admin Login</span>
+                <span className="inline sm:hidden hidden min-[440px]:inline">Admin</span>
               </button>
             )}
           </div>
