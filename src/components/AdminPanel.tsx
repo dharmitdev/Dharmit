@@ -1180,9 +1180,9 @@ export default function AdminPanel({
                       className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-mono text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder:text-slate-400/50"
                       id="web3forms-key-input"
                     />
-                    <p className="text-[9.5px] text-slate-400 leading-normal">
-                      Get a free key instantly by entering your email at <a href="https://web3forms.com/" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline font-semibold">web3forms.com</a> (No password required).
-                    </p>
+                    <div className="p-2.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/40 rounded-lg text-[10px] text-amber-800 dark:text-amber-300 leading-normal font-sans">
+                      <span className="font-bold">Setup Instructions:</span> To receive emails at <code className="bg-amber-100/50 dark:bg-amber-950/40 px-1 py-0.5 rounded">dharmitpatel8960@gmail.com</code>, please go to <a href="https://web3forms.com/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 font-bold underline">web3forms.com</a>, submit <code className="bg-indigo-50 dark:bg-indigo-950/40 px-1 py-0.5 rounded">dharmitpatel8960@gmail.com</code>, and paste the Access Key they email you right here. Web3Forms delivers messages strictly to the email that registered the key.
+                    </div>
                   </div>
 
                   {/* Recipient Email input */}
@@ -1333,6 +1333,29 @@ export default function AdminPanel({
                         <td className="py-3.5 px-4">
                           <div className="font-bold text-slate-900 dark:text-white">{item.name}</div>
                           {item.email && <div className="text-[10px] text-slate-400 font-mono">{item.email}</div>}
+                          <div className="mt-1 flex items-center space-x-1.5 select-none">
+                            {item.emailStatus === 'success' ? (
+                              <span className="inline-flex items-center space-x-1 text-[9.5px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/25 px-1.5 py-0.5 rounded" title="Email notification successfully dispatched via Web3Forms">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                <span>MAILED</span>
+                              </span>
+                            ) : item.emailStatus === 'failed' ? (
+                              <span className="inline-flex items-center space-x-1 text-[9.5px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/25 px-1.5 py-0.5 rounded cursor-help" title={`Dispatch Failed: ${item.emailErrorMessage || 'Check your Web3Forms access key'}`}>
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
+                                <span>MAIL FAILED</span>
+                              </span>
+                            ) : item.emailStatus === 'pending' ? (
+                              <span className="inline-flex items-center space-x-1 text-[9.5px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/25 px-1.5 py-0.5 rounded">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                <span>MAILING...</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center space-x-1 text-[9.5px] font-bold text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-950/50 px-1.5 py-0.5 rounded" title="Email notifications disabled or Web3Forms key not set">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700"></span>
+                                <span>NOT MAILED</span>
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3.5 px-4 whitespace-nowrap">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${

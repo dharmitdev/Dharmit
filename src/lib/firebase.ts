@@ -534,6 +534,15 @@ export async function submitFeedback(feedbackData: Omit<Feedback, 'id' | 'timest
   }
 }
 
+export async function updateFeedbackEmailStatus(feedbackId: string, emailStatus: 'pending' | 'success' | 'failed', emailErrorMessage?: string) {
+  const docRef = doc(db, 'feedbacks', feedbackId);
+  try {
+    await setDoc(docRef, { emailStatus, emailErrorMessage }, { merge: true });
+  } catch (error) {
+    console.error("Failed to update feedback email status:", error);
+  }
+}
+
 export function subscribeFeedbacks(onUpdate: (feedbacks: Feedback[]) => void) {
   const colRef = collection(db, 'feedbacks');
   const q = query(colRef, orderBy('timestamp', 'desc'));
@@ -552,7 +561,9 @@ export function subscribeFeedbacks(onUpdate: (feedbacks: Feedback[]) => void) {
         status: data.status || 'pending',
         attachmentName: data.attachmentName,
         attachmentType: data.attachmentType,
-        attachmentData: data.attachmentData
+        attachmentData: data.attachmentData,
+        emailStatus: data.emailStatus,
+        emailErrorMessage: data.emailErrorMessage
       });
     });
     onUpdate(records);
@@ -589,7 +600,7 @@ export async function getAppSettings(): Promise<AppSettings> {
       return {
         id: 'admin',
         web3FormsKey: data.web3FormsKey || '',
-        emailNotificationsEnabled: data.emailNotificationsEnabled ?? false,
+        emailNotificationsEnabled: data.emailNotificationsEnabled ?? true,
         notificationRecipient: data.notificationRecipient || 'dharmitpatel8960@gmail.com'
       };
     } else {
@@ -597,7 +608,7 @@ export async function getAppSettings(): Promise<AppSettings> {
       return {
         id: 'admin',
         web3FormsKey: envKey,
-        emailNotificationsEnabled: !!envKey,
+        emailNotificationsEnabled: true,
         notificationRecipient: 'dharmitpatel8960@gmail.com'
       };
     }
@@ -607,7 +618,7 @@ export async function getAppSettings(): Promise<AppSettings> {
     return {
       id: 'admin',
       web3FormsKey: envKey,
-      emailNotificationsEnabled: !!envKey,
+      emailNotificationsEnabled: true,
       notificationRecipient: 'dharmitpatel8960@gmail.com'
     };
   }
@@ -642,7 +653,7 @@ export function subscribeAppSettings(onUpdate: (settings: AppSettings) => void) 
       onUpdate({
         id: 'admin',
         web3FormsKey: data.web3FormsKey || '',
-        emailNotificationsEnabled: data.emailNotificationsEnabled ?? false,
+        emailNotificationsEnabled: data.emailNotificationsEnabled ?? true,
         notificationRecipient: data.notificationRecipient || 'dharmitpatel8960@gmail.com'
       });
     } else {
@@ -650,7 +661,7 @@ export function subscribeAppSettings(onUpdate: (settings: AppSettings) => void) 
       onUpdate({
         id: 'admin',
         web3FormsKey: envKey,
-        emailNotificationsEnabled: !!envKey,
+        emailNotificationsEnabled: true,
         notificationRecipient: 'dharmitpatel8960@gmail.com'
       });
     }

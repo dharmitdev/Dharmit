@@ -50,6 +50,8 @@ export interface Feedback {
   attachmentName?: string;
   attachmentType?: string;
   attachmentData?: string; // base64 string
+  emailStatus?: 'pending' | 'success' | 'failed';
+  emailErrorMessage?: string;
 }
 
 export interface AppSettings {

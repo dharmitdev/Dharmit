@@ -15,7 +15,7 @@ import {
   File,
   Trash2
 } from 'lucide-react';
-import { submitFeedback, getAppSettings } from '../lib/firebase';
+import { submitFeedback, getAppSettings, updateFeedbackEmailStatus } from '../lib/firebase';
 
 interface FeedbackModalProps {
   isOpen: boolean;
@@ -142,7 +142,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
 
     try {
       // 1. Submit to Firestore first
-      await submitFeedback({
+      const feedbackId = await submitFeedback({
         name: name.trim(),
         email: email.trim() || undefined,
         type,
@@ -158,6 +158,8 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
         const accessKey = settings.web3FormsKey || (import.meta.env.VITE_WEB3FORMS_ACCESS_KEY as string);
 
         if (accessKey && settings.emailNotificationsEnabled !== false) {
+          updateFeedbackEmailStatus(feedbackId, 'pending');
+
           const formData = new FormData();
           formData.append("access_key", accessKey);
           formData.append("name", name.trim());
@@ -205,17 +207,21 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
           .then(data => {
             if (data.success) {
               console.log("Email notification dispatched successfully via Web3Forms.");
+              updateFeedbackEmailStatus(feedbackId, 'success');
             } else {
               console.warn("Web3Forms email dispatch response was unsuccessful:", data.message);
+              updateFeedbackEmailStatus(feedbackId, 'failed', data.message || 'Web3Forms unsuccessful status response');
             }
           })
           .catch(err => {
             console.error("Web3Forms network request failed:", err);
+            updateFeedbackEmailStatus(feedbackId, 'failed', err.message || 'Web3Forms network request failed');
           });
         }
-      } catch (emailErr) {
+      } catch (emailErr: any) {
         // Prevent email dispatch failures from blocking the main user success flow
         console.error("Failed to construct or dispatch email notification:", emailErr);
+        updateFeedbackEmailStatus(feedbackId, 'failed', emailErr.message || 'Construction error');
       }
 
       setSubmitSuccess(true);
